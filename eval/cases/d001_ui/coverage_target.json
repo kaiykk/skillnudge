@@ -1,0 +1,11 @@
+{
+  "candidate_id": "nextlevelbuilder/ui-ux-pro-max-skill::ui-ux-pro-max",
+  "repo": "nextlevelbuilder/ui-ux-pro-max-skill",
+  "name": "ui-ux-pro-max",
+  "official_commit": "5fe9624cb844266aeae50d8a3f24c403bd456c16",
+  "official_path": ".claude/skills/ui-ux-pro-max/SKILL.md",
+  "official_body_sha256": "b6627ae64792f475731d3fb0643d4521370c26dbc447fd91675e4f446aa0f3c3",
+  "source_url": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+  "license": "MIT",
+  "identity_rule": "A corpus record passes coverage when its name matches and its body, after removing the official file's frontmatter and trailing newline, matches the pinned official file body."
+}

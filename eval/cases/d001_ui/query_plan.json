@@ -1,0 +1,28 @@
+{
+  "case_id": "D001",
+  "intervention": {
+    "primary_family": "skill",
+    "companion_family": "resource"
+  },
+  "status": "ready",
+  "queries": [
+    {
+      "family": "skill",
+      "angle": "capability",
+      "semantic_query": "ui ux prototyping guidance",
+      "purpose": "Find instructional capabilities that turn vague product ideas into UI prototypes."
+    },
+    {
+      "family": "skill",
+      "angle": "problem",
+      "semantic_query": "translate vague visual intent into interface design",
+      "purpose": "Search around the actual blocker rather than generic frontend development."
+    },
+    {
+      "family": "skill",
+      "angle": "professional_vocabulary",
+      "semantic_query": "design system wireframe prototype interaction design",
+      "purpose": "Introduce professional vocabulary that improves lexical recall."
+    }
+  ]
+}
