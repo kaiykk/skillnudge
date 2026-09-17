@@ -3,6 +3,7 @@
 **The right capability, only when it helps.**
 
 SkillNudge 是一个面向 AI coding agent 的开源、本地优先的能力介入建议工具。
+当前仓库是 docs-first 设计基线，产品尚未实现。
 
 它关注的问题不只是：
 
@@ -20,7 +21,8 @@ SkillNudge 是一个面向 AI coding agent 的开源、本地优先的能力介�
 - Companion Resource
 - 或者不介入
 
-当前仓库仍处于 **Design / V0 baseline** 阶段，产品尚未实现。
+当前已经基本冻结的 V0 产品边界是 **Advise**：理解当前阻塞、规划最小
+有效介入、检查证据，并输出克制的建议。Review、Grow、Watch 属于未来能力。
 
 ## 为什么需要 SkillNudge
 
@@ -70,22 +72,19 @@ SkillNudge 不以最大化安装数量或生成 Top-10 列表为目标。它遵�
 - 必要时解释为什么拒绝其他候选；
 - 不输出推荐垃圾列表。
 
-## 概念流程
+## 主流程
 
-```text
-用户问题
-    ↓
-缺失能力
-    ↓
-介入类型
-    ↓
-候选对象
-    ↓
-基于证据的判断
+```mermaid
+flowchart TD
+    A["用户的模糊问题"] --> B["当前缺少什么能力？"]
+    B --> C["现在值得介入吗？"]
+    C --> D["Skill / Plugin / Tool / None"]
+    D --> E["基于证据的判断"]
+    E --> F["0-2 个建议"]
 ```
 
 当前概念模型包含 Skill、Plugin、Tool、Companion Resource 和 No intervention。
-V0 不一定对每种类型提供同等深度的支持。
+这个模型保持开放，因为最合适的答案不一定是 Skill。
 
 ## V0 设计基线
 
@@ -158,7 +157,7 @@ GitHub 主要用于已知候选的源代码获取、provenance 和 freshness che
 
 ## 当前状态
 
-**Design / V0 baseline。**
+**[FROZEN] Design / V0 baseline。**
 
 当前仓库包含：
 
@@ -171,7 +170,7 @@ GitHub 主要用于已知候选的源代码获取、provenance 和 freshness che
 
 - 可运行的 `skillnudge advise` 命令；
 - BM25 或 FTS5 实现；
-- 已下载的 Skill corpus；
+- 已下载的 Skill corpus 或数据库；
 - embedding 或 reranking backend；
 - 自动安装；
 - Review、Grow 或 Watch；
@@ -193,12 +192,25 @@ GitHub 主要用于已知候选的源代码获取、provenance 和 freshness che
 
 ## 设计文档
 
+- [`docs/product-thesis.md`](docs/product-thesis.md) — 核心产品命题与状态标签。
+- [`docs/product-evolution.md`](docs/product-evolution.md) — 为什么产品不再只是
+  Skill Search。
+- [`docs/architecture.md`](docs/architecture.md) — 产品与 V0 系统图。
+- [`docs/capability-map.md`](docs/capability-map.md) — Advise、Review、Grow、
+  Watch 能力地图。
 - [`docs/runtime.md`](docs/runtime.md) — V0 Runtime Map 与各层职责。
+- [`docs/feature-framework.md`](docs/feature-framework.md) — 计划模块的职责矩阵。
 - [`docs/candidate-acquisition.md`](docs/candidate-acquisition.md) — 本地
   source、live fallback、标准化与缓存层级。
+- [`docs/data-layer.md`](docs/data-layer.md) — 候选生命周期与 provenance 边界。
 - [`docs/retrieval.md`](docs/retrieval.md) — 轻量检索基线。
+- [`docs/judge.md`](docs/judge.md) — intervention utility 判断目标。
 - [`docs/trace.md`](docs/trace.md) — 不记录 private chain-of-thought 的可观察运行产物。
 - [`docs/golden-cases.md`](docs/golden-cases.md) — D001、D002、D003。
+- [`docs/skill-utility-drift.md`](docs/skill-utility-drift.md) — 面向未来的
+  model-aware 生命周期方向。
+- [`docs/research/`](docs/research/) — 历史证据与研究边界。
+- [`docs/open-questions.md`](docs/open-questions.md) — 尚未冻结的设计问题。
 - [`docs/roadmap.md`](docs/roadmap.md) — 分阶段范围与 utility drift。
 - [`docs/week1.md`](docs/week1.md) — 第一阶段实现边界建议。
 - [`docs/decisions/`](docs/decisions/) — 历史决策记录。
@@ -217,4 +229,3 @@ GitHub 主要用于已知候选的源代码获取、provenance 和 freshness che
 ## 许可证
 
 SkillNudge 使用 [MIT License](LICENSE) 发布。
-

@@ -2,7 +2,13 @@
 
 ## Status
 
-这是 SkillNudge 的 V0 design baseline，不是已实现的 Runtime。
+- `[FROZEN]` The eight-layer V0 Runtime Map below.
+- `[FROZEN]` Trace crosses every layer.
+- `[WORKING HYPOTHESIS]` Explicit intermediate artifacts will provide enough
+  diagnostic value to justify their recording cost.
+- `[FUTURE]` Review, Grow, Watch, personalization, and lifecycle automation.
+
+This is a design baseline, not an implemented Runtime.
 
 ## Frozen Flow
 
@@ -23,7 +29,6 @@ Raw User Request
         │
         ▼
 5. Candidate Acquisition
-        │
         ├── Local Retrieval
         └── Conditional Live Discovery
         │
@@ -36,7 +41,7 @@ Raw User Request
         ▼
 8. Final Advice
 
-Trace 横切整个 Runtime。
+Trace crosses the entire runtime.
 ```
 
 除非发现明显的内部矛盾，否则后续实现不应重新设计这张图。
@@ -45,114 +50,203 @@ Trace 横切整个 Runtime。
 
 ### 1. Intake / Context
 
-保存：
+#### Goal
+
+保留原始事实，避免在入口处过早解释。
+
+#### Input
 
 - 用户原始输入；
 - 可选 project context；
 - 可选 current stage。
 
-这一层不负责解释用户真正需要什么。
+#### Output
+
+`InputEnvelope`（概念对象）。
+
+#### Does NOT do
+
+- 解释用户真正需要什么；
+- 搜索 candidate；
+- 提前指定 Skill。
 
 ### 2. Capability Framing
 
-判断用户当前可能缺少的 capability，并形成
-`CapabilityContract`。
+#### Goal
 
-这一层：
+理解用户为什么在当前任务阶段推进不下去，以及真正缺失的 capability。
 
-- 可以使用模型进行抽象；
-- 必须保留不确定性；
-- SHALL 在搜索候选前完成；
-- 不得读取候选结果来反向写答案。
+#### Input
+
+- `InputEnvelope`；
+- 用户原始表达。
+
+#### Output
+
+`CapabilityContract`（概念对象），并保留不确定性和原始措辞。
+
+#### Does NOT do
+
+- 寻找具体 Skill；
+- 使用候选结果倒推答案；
+- 做最终推荐。
+
+Capability Framing 必须在搜索前完成，避免把候选名称误写进 capability。
 
 ### 3. Intervention Planning
 
-判断搜索预算应该分配给哪些 intervention surface，例如：
+#### Goal
 
-- Skill primary；
-- Plugin secondary；
-- Tool candidate；
-- Companion Resource；
-- No intervention。
+决定搜索预算应该分给哪些 intervention surface，例如 Skill primary、
+Tool secondary，或 Plugin primary、Skill secondary。
 
-这不是 hard route，也不直接决定最终答案。
+#### Input
+
+- `CapabilityContract`；
+- task stage；
+- host 和 project constraints。
+
+#### Output
+
+`InterventionPlan`（概念对象）。
+
+#### Does NOT do
+
+- 把软路由变成 hard route；
+- 直接宣布最终答案；
+- 因为产品名是 SkillNudge 就强制选择 Skill。
 
 ### 4. Query Planning
 
-从 `CapabilityContract` 生成 3–5 个互补 query。
+#### Goal
 
-Query angles 可以包括：
+把 `CapabilityContract` 转成 3-5 个互补 query。
 
-- capability；
-- outcome；
-- operation；
-- professional vocabulary；
-- artifact；
-- workflow。
+#### Input
 
-Query Planning 不应通过领域 `if/else` 直接写出某个行业的答案。
+- `CapabilityContract`；
+- `InterventionPlan`。
+
+#### Output
+
+`QueryPlan`（概念对象）。
+
+Query angle 可以包括 capability、problem、desired outcome、operation、
+professional vocabulary、artifact、workflow 和 scenario/stage。
+
+#### Does NOT do
+
+- 生成 8 个近义词 query；
+- 通过 `if ui`、`if debug` 等领域 hardcode 直接写答案；
+- 把 query 结果当成已验证 capability。
 
 ### 5. Candidate Acquisition
 
-构造 `CandidatePool`，而不是直接做最终推荐。
+#### Goal
 
-Candidate Acquisition 包含：
+形成可进一步检查的 `CandidatePool`。
 
-- Local Acquisition；
-- Conditional Live Discovery。
+#### Input
 
-默认顺序是先检查本地 evidence / coverage，再按需访问 live source。
+- `QueryPlan`；
+- local corpus / catalog；
+- live-discovery policy。
+
+#### Output
+
+带有 intervention type、身份、来源和 cache level 的候选池。
+
+#### Does NOT do
+
+- 直接给出 Final Advice；
+- 把 local corpus 当作整个世界；
+- 无限进行 live search；
+- 自动把 live result 写入 trusted corpus。
+
+默认顺序是 LOCAL FIRST，然后才是 CONDITIONAL LIVE DISCOVERY。
 
 ### 6. Evidence Hydration
 
-获取候选的完整证据包，例如：
+#### Goal
 
-- 完整 Skill body；
-- README；
-- metadata；
-- provenance；
-- compatibility；
-- maintenance；
-- license。
+把候选从“搜索结果”变成 Judge 能判断的 evidence package。
 
-检索相关性不等于可用性。
+#### Input
+
+- `CandidatePool`；
+- source adapters；
+- version / commit / retrieval metadata。
+
+#### Output
+
+概念上的 evidence package，例如：
+
+- Skill：name、description、完整 body、repo、source、license、
+  compatibility、updated_at；
+- Tool：README evidence、installation、supported host、maintenance、repo、
+  trust signals。
+
+#### Does NOT do
+
+- 以 snippet 代替完整证据；
+- 把 README claim 自动升级为 observed capability；
+- 直接生成最终建议。
 
 ### 7. Candidate Judgement
 
-回答：
+#### Goal
 
-> 这个 intervention 是否值得在用户当前状态介入？
+判断 intervention 是否值得在当前 stage 介入。
 
-长期需要关注：
+#### Input
 
-- capability fit；
-- stage fit；
-- intervention-type fit；
-- compatibility；
-- trust；
-- friction。
+- evidence packages；
+- `CapabilityContract`；
+- task stage、model 和 project context。
 
-V0 暂不设计复杂数学 score。
+#### Output
+
+候选 judgement、fit/trust/friction 说明、拒绝理由或证据不足状态。
+
+#### Does NOT do
+
+- 只做 semantic similarity；
+- 只看 star 数；
+- 在 V0 预设复杂 numeric score；
+- 把 retrieval relevance 当作 utility。
 
 ### 8. Final Advice
 
-压缩成：
+#### Goal
 
-- 0–2 个主要 recommendation；
-- why now；
-- why this；
-- relevant uncertainty；
-- 必要时列出 rejected alternatives。
+把判断压缩成用户现在可执行、可理解的下一步建议。
 
-Final status 至少概念上区分：
+#### Input
+
+- candidate judgements；
+- evidence；
+- explicit uncertainty；
+- original request。
+
+#### Output
+
+0-2 个主要 recommendation，必要时附 companion resource、rejected
+alternatives 和 status。
+
+#### Does NOT do
+
+- 输出 Top-10 recommendation spam；
+- 隐藏不确定性；
+- 把没有证据统一写成 `no-match`；
+- 为了体现检索能力而强行介入。
+
+概念上的 final status 至少区分：
 
 - `recommendation`
 - `no_intervention`
 - `insufficient_evidence`
 - `needs_clarification`
 - `source_error`
-
-不要把所有没有推荐的情况统一称为 `no-match`。
 
 ## Cross-Cutting Rules
 
@@ -175,4 +269,3 @@ Skill 问题。
 
 Watch、Review、Grow、personalization、自动安装和完整 lifecycle 不属于
 V0 Runtime。
-

@@ -2,47 +2,68 @@
 
 ## Status
 
+- `[FROZEN]` Week 1 is CLI-first and Advise-only.
+- `[FROZEN]` Week 1 excludes Review, Grow, Watch, semantic retrieval, and
+  automatic installation.
+- `[WORKING HYPOTHESIS]` A lightweight end-to-end loop can validate the product
+  boundary before a larger platform is justified.
+
 这是 Week 1 的实现边界建议，不代表当前已经开始实现。
 
 ## Goal
 
-建立一个轻量的 **Intervention Advisor V0**，先验证产品边界和最小可用闭环。
+建立一个轻量的 **Intervention Advisor V0**，先验证产品边界和最小可用闭环：
+
+```text
+Input
+→ Capability
+→ Intervention
+→ Query
+→ Candidate Acquisition
+→ Evidence
+→ Judge
+→ Advice
+```
+
+默认 CLI 方向为：
+
+```bash
+skillnudge advise "<request>" --trace
+```
+
+当前仓库不提供这条命令。
 
 ## Definition of Done
 
-### G1
+### G1 — Runtime
 
-未来实现后，能够运行：
+未来实现后，CLI 能够运行完整的 Advise runtime，且每一层有可检查边界。
 
-```bash
-skillnudge advise "<vague request>"
-```
+### G2 — Laptop
 
-当前仓库不提供这个命令。
-
-### G2
-
-默认运行不依赖：
+普通 laptop 可运行，默认不依赖：
 
 - GPU；
 - embedding；
 - vector database。
 
-### G3
+### G3 — D001
 
-D001 可以从真实 corpus 找到合理的 Skill candidate。
+D001 能从一个真实、可追溯的 corpus 找到合理 Skill candidate，并解释
+vocabulary mismatch。
 
-### G4
+### G4 — D002
 
-D002 不会强制选择 Skill；Tool 或 Plugin 可以成为更合适的 intervention。
+D002 不会强制选择 Skill，且能保留 non-Skill intervention 作为更合适的
+方向。
 
-### G5
+### G5 — D003
 
-D003 允许 `no_intervention`。
+D003 能输出 `no_intervention`。
 
-### G6
+### G6 — Trace
 
-每次运行都有完整 observable trace。
+每次运行产生可读、脱敏、能定位失败层的 observable trace。
 
 ## Week 1 Non-Goals
 
@@ -74,3 +95,9 @@ Week 1 不做：
 - 先保证 no-intervention 合法，再追求推荐数量；
 - 不把 README 或模型推断写成 confirmed capability。
 
+## Timebox
+
+Week 1 的目标是五个工作日内验证最小闭环，而不是完成完整生态。若
+corpus/source、host compatibility 或 evidence hydration 在最小范围内仍
+无法得到可复查结果，应记录为边界问题并缩小范围，不用增加平台基础设施
+来掩盖验证失败。

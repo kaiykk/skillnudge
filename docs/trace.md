@@ -2,6 +2,12 @@
 
 ## Status
 
+- `[FROZEN]` Trace is a first-class, explicit runtime artifact.
+- `[FROZEN]` Trace does not contain private chain-of-thought or secrets.
+- `[WORKING HYPOTHESIS]` The proposed artifact boundaries are sufficient for
+  diagnosing V0 failures.
+- `[FUTURE]` Automated Review, utility attribution, and long-term monitoring.
+
 Trace 是 V0 的可观察性设计，不是当前已经存在的运行记录系统。
 
 ## Purpose
@@ -79,6 +85,22 @@ trace.jsonl
 
 Trace 文件是可复查状态，不是用户隐私的无限制存档。
 
+## Review Protocol
+
+审查一次 run 时，固定按下面顺序：
+
+```text
+1. Contract
+2. Query / SQL / retrieval request
+3. Raw Result
+4. System decision
+5. Final advice
+6. Agent analysis last
+```
+
+先看事实和显式产物，再看 Agent 对自身行为的解释。这样可以降低
+narrative bias，避免事后叙事掩盖真实失败层。
+
 ## Privacy and Security
 
 不得默认保存：
@@ -104,4 +126,3 @@ Trace 中的最终状态至少应区分：
 - `source_error`
 
 公共 source 的空结果不能直接等同于 closed-corpus 的 `no_match`。
-

@@ -3,7 +3,8 @@
 **The right capability, only when it helps.**
 
 SkillNudge is an open-source, local-first capability intervention advisor for
-AI coding agents.
+AI coding agents. This repository is a docs-first design baseline; it is not
+yet a working product.
 
 It is being designed around a question that is slightly different from
 “Which Skills should I install?”:
@@ -19,8 +20,9 @@ SkillNudge may eventually consider:
 - companion resources
 - or no intervention
 
-This repository is currently a **Design / V0 baseline**. The product is not
-implemented yet.
+The current [FROZEN] product boundary is **Advise**: understand the blockage,
+plan the smallest useful intervention, inspect evidence, and explain a bounded
+recommendation. Review, Grow, and Watch are future capabilities.
 
 ## Why SkillNudge?
 
@@ -72,22 +74,20 @@ The intended advice discipline is:
 - rejected alternatives can be explained when that helps;
 - no recommendation spam.
 
-## Conceptual Flow
+## Main Loop
 
-```text
-User problem
-    ↓
-Missing capability
-    ↓
-Intervention type
-    ↓
-Candidate
-    ↓
-Evidence-based judgement
+```mermaid
+flowchart TD
+    A["User's vague problem"] --> B["What capability is missing?"]
+    B --> C["Is intervention worth it?"]
+    C --> D["Skill / Plugin / Tool / None"]
+    D --> E["Evidence-based judgement"]
+    E --> F["0-2 recommendations"]
 ```
 
 The initial intervention model includes Skill, Plugin, Tool, Companion Resource,
-and No intervention. V0 may not support each type with equal depth.
+and No intervention. The model remains deliberately open because the best
+answer may not be a Skill.
 
 ## V0 Design Baseline
 
@@ -163,7 +163,7 @@ probes, not hardcoded answers.
 
 ## Current Status
 
-**Design / V0 baseline.**
+**[FROZEN] Design / V0 baseline.**
 
 This repository currently contains:
 
@@ -175,8 +175,8 @@ This repository currently contains:
 It does **not** currently claim to provide:
 
 - a working `skillnudge advise` command;
-- BM25 or FTS5 implementation;
-- a downloaded Skill corpus;
+- a BM25 or FTS5 implementation;
+- a downloaded Skill corpus or database;
 - an embedding or reranking backend;
 - automatic installation;
 - Review, Grow, or Watch;
@@ -198,13 +198,31 @@ These are roadmap directions, not completed capabilities.
 
 ## Design Documents
 
+- [`docs/product-thesis.md`](docs/product-thesis.md) — core product thesis and
+  state labels.
+- [`docs/product-evolution.md`](docs/product-evolution.md) — why the product
+  moved beyond Skill Search.
+- [`docs/architecture.md`](docs/architecture.md) — product and V0 system maps.
+- [`docs/capability-map.md`](docs/capability-map.md) — Advise, Review, Grow,
+  and Watch.
 - [`docs/runtime.md`](docs/runtime.md) — V0 runtime map and layer contracts.
+- [`docs/feature-framework.md`](docs/feature-framework.md) — responsibility
+  matrix for planned and future modules.
 - [`docs/candidate-acquisition.md`](docs/candidate-acquisition.md) — local
   sources, live fallback, normalization, and cache levels.
+- [`docs/data-layer.md`](docs/data-layer.md) — candidate lifecycle and
+  provenance boundaries.
 - [`docs/retrieval.md`](docs/retrieval.md) — lightweight retrieval baseline.
+- [`docs/judge.md`](docs/judge.md) — intervention utility judgement target.
 - [`docs/trace.md`](docs/trace.md) — observable run artifacts without private
   chain-of-thought.
 - [`docs/golden-cases.md`](docs/golden-cases.md) — D001, D002, and D003.
+- [`docs/skill-utility-drift.md`](docs/skill-utility-drift.md) — future
+  model-aware lifecycle direction.
+- [`docs/research/`](docs/research/) — historical evidence and research
+  boundaries.
+- [`docs/open-questions.md`](docs/open-questions.md) — unresolved design
+  questions that must not be silently frozen.
 - [`docs/roadmap.md`](docs/roadmap.md) — staged scope and utility drift.
 - [`docs/week1.md`](docs/week1.md) — proposed first implementation boundary.
 - [`docs/decisions/`](docs/decisions/) — historical decision records.
@@ -224,4 +242,3 @@ Small, falsifiable proposals are preferred to broad platform additions.
 ## License
 
 SkillNudge is released under the [MIT License](LICENSE).
-
