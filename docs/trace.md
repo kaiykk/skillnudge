@@ -4,11 +4,14 @@
 
 - `[FROZEN]` Trace is a first-class, explicit runtime artifact.
 - `[FROZEN]` Trace does not contain private chain-of-thought or secrets.
+- `[IMPLEMENTED CHECKPOINT 1]` D001 produces the first five checkpoint artifacts
+  plus `trace.jsonl`; later runtime artifacts remain unimplemented.
 - `[WORKING HYPOTHESIS]` The proposed artifact boundaries are sufficient for
   diagnosing V0 failures.
 - `[FUTURE]` Automated Review, utility attribution, and long-term monitoring.
 
-Trace 是 V0 的可观察性设计，不是当前已经存在的运行记录系统。
+Trace 是 V0 的可观察性设计。Checkpoint 1 已提供 D001 的局部运行记录系统；
+完整 runtime 的记录仍待后续 checkpoint。
 
 ## Purpose
 

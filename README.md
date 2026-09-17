@@ -3,8 +3,8 @@
 **The right capability, only when it helps.**
 
 SkillNudge is an open-source, local-first capability intervention advisor for
-AI coding agents. This repository is a docs-first design baseline; it is not
-yet a working product.
+AI coding agents. This repository is a docs-first product baseline with a
+working Checkpoint 1 retrieval smoke path; it is not yet a complete product.
 
 It is being designed around a question that is slightly different from
 “Which Skills should I install?”:
@@ -163,25 +163,37 @@ probes, not hardcoded answers.
 
 ## Current Status
 
-**[FROZEN] Design / V0 baseline.**
+**[CHECKPOINT 1] Local retrieval baseline.**
 
 This repository currently contains:
 
 - product and runtime design documents;
 - decision records;
 - golden cases;
-- placeholders for future source and test code.
+- a SQLite/FTS5/BM25/RRF candidate-acquisition baseline;
+- a frozen D001 query fixture and engineering smoke tests.
 
 It does **not** currently claim to provide:
 
 - a working `skillnudge advise` command;
-- a BM25 or FTS5 implementation;
-- a downloaded Skill corpus or database;
+- CapabilityPlanner, InterventionPlan runtime, or LLM QueryPlanner;
 - an embedding or reranking backend;
+- Evidence Hydration, Candidate Judge, or Final Advice;
 - automatic installation;
 - Review, Grow, or Watch;
 - automatic Skill Utility Drift detection;
 - a benchmark result or superiority claim.
+
+Run Checkpoint 1 with a local corpus using:
+
+```bash
+PYTHONPATH=src python3 scripts/run_d001.py \
+  --corpus /path/to/corpus.json \
+  --run-dir runs/d001-checkpoint1
+```
+
+The run creates reviewable artifacts under `runs/` and does not create a
+recommendation.
 
 ## Roadmap
 

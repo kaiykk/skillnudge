@@ -3,12 +3,14 @@
 ## Status
 
 - `[FROZEN]` Week 1 is CLI-first and Advise-only.
+- `[IMPLEMENTED CHECKPOINT 1]` Local corpus indexing, BM25/RRF raw retrieval,
+  and D001 trace artifacts are implemented.
 - `[FROZEN]` Week 1 excludes Review, Grow, Watch, semantic retrieval, and
   automatic installation.
 - `[WORKING HYPOTHESIS]` A lightweight end-to-end loop can validate the product
   boundary before a larger platform is justified.
 
-这是 Week 1 的实现边界建议，不代表当前已经开始实现。
+这是 Week 1 的实现边界与当前 checkpoint 状态。
 
 ## Goal
 
@@ -31,7 +33,8 @@ Input
 skillnudge advise "<request>" --trace
 ```
 
-当前仓库不提供这条命令。
+当前仓库尚未提供完整的 `skillnudge advise` 命令；Checkpoint 1 通过
+`scripts/run_d001.py` 提供局部 smoke path。
 
 ## Definition of Done
 

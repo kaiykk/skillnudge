@@ -2,8 +2,21 @@
 
 ## DESIGN FREEZE
 
-Frozen V0 contracts may only be reopened by observed implementation or
-golden-case failure, not by speculative architectural improvement.
+Frozen V0 contracts may only be reopened by:
+
+1. observed implementation failure;
+2. golden-case failure; or
+3. a clear contradiction discovered during coding.
+
+They must not be reopened because of speculative architectural improvement.
+The default sequence is:
+
+```text
+STOP DESIGNING
+-> IMPLEMENT
+-> OBSERVE FAILURE
+-> ONLY THEN REOPEN CONTRACT
+```
 
 这些文件是 SkillNudge Week 1 / V0 的 implementation source of truth。
 它们只记录已经接受的行为合同和项目边界；待验证假设仍应保存在
@@ -19,6 +32,8 @@ golden-case failure, not by speculative architectural improvement.
 | InterventionPlan v0.1 | FROZEN |
 | QueryPlan v0.1 | FROZEN |
 | JudgeContract v0.1 | FROZEN |
+| Candidate Acquisition | IMPLEMENTATION BASELINE |
+| Final Advice | MINIMAL BEHAVIOR DEFINED |
 
 本目录未列出的字段、规则或实现细节不因这些文件的存在而自动成立。
 
@@ -31,5 +46,7 @@ Runtime Map、CapabilityContract、InterventionPlan、QueryPlan 和 JudgeContrac
 ## Next Stage
 
 ```text
-CODEX IMPLEMENT WEEK 1
+WEEK 1 IMPLEMENTATION
 ```
+
+Checkpoint order is defined in [`../week1-implementation-spec.md`](../week1-implementation-spec.md).

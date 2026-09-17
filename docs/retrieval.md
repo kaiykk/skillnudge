@@ -3,13 +3,17 @@
 ## Status
 
 - `[FROZEN]` V0 is local-first and BM25-first.
+- `[IMPLEMENTED CHECKPOINT 1]` The D001 local SQLite/FTS5/BM25/RRF smoke path
+  is implemented; it is not the complete runtime.
 - `[FROZEN]` Embedding, vector database, and GPU are not mandatory V0
   dependencies.
 - `[WORKING HYPOTHESIS]` Query diversity plus rank fusion can provide a useful
   candidate pool before semantic retrieval is justified.
 - `[FUTURE]` Optional embedding, hybrid retrieval, and learned reranking.
 
-这是 SkillNudge 的 V0 retrieval design baseline，不是已经运行的检索系统。
+这是 SkillNudge 的 V0 retrieval baseline。Checkpoint 1 已提供可复查的本地
+检索 smoke path；它还不是完整的 Candidate Acquisition 或 recommendation
+系统。
 
 ## Lightweight Defaults
 
@@ -35,7 +39,7 @@ Reciprocal Rank Fusion
 Top 20–30 candidate pool
 ```
 
-这是一条待实现和验证的 baseline，不是效果承诺。V0 的目标不是 BM25
+这是一条待用于验证和观测的 baseline，不是效果承诺。V0 的目标不是 BM25
 Top-1 accuracy，而是把值得进一步检查的候选带入一个小而可追溯的
 Candidate Pool。
 

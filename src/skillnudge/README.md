@@ -1,8 +1,8 @@
 # `src/skillnudge`
 
-This package is reserved for the future implementation of the SkillNudge
-runtime.
+This package contains the Checkpoint 1 local candidate-acquisition baseline:
+streaming corpus normalization, SQLite FTS5 storage, raw BM25 retrieval, and
+deterministic RRF.
 
-The initial repository is docs-first. No runtime, CLI, retrieval dependency, or
-mock product behavior is included yet.
-
+It deliberately does not implement capability framing, intervention planning,
+candidate judgement, final advice, or live discovery.

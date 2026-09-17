@@ -5,12 +5,15 @@
 - `[FROZEN]` Local corpus is a default source, not the whole world.
 - `[FROZEN]` Candidate Acquisition constructs a Candidate Pool and does not
   produce Final Advice.
+- `[IMPLEMENTED CHECKPOINT 1]` The selected public corpus can be normalized into
+  a local SQLite/FTS5 retrieval index for the D001 smoke path.
 - `[WORKING HYPOTHESIS]` Local-first plus bounded live fallback is sufficient
   for the first product loop.
 - `[FUTURE]` Large-scale source adapters, stable snapshot publishing, and a
   broad ToolHub.
 
-这是 V0 的数据与候选获取设计，不是已实现的 source adapter。
+这是 V0 的数据与候选获取边界。Checkpoint 1 只实现了本地 corpus 的最小
+索引与检索基线，不是完整的 source adapter 或 Candidate Acquisition runtime。
 
 ## Local First
 
