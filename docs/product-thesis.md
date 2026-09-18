@@ -1,5 +1,8 @@
 # Product Thesis
 
+Canonical long-term statement: [`docs/north-star.md`](north-star.md).
+This file remains the detailed current product thesis and V0 boundary.
+
 ## Status
 
 - `[FROZEN]` The V0 product boundary is a Capability Intervention Advisor.

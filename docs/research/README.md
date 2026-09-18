@@ -8,6 +8,9 @@
 - `[FUTURE]` Dedicated retrieval benchmarks, model-aware utility evaluation,
   and semantic retrieval comparisons.
 
+Canonical long-term thesis: [`../north-star.md`](../north-star.md).
+Canonical North Star bibliography: [`north-star-references.md`](north-star-references.md).
+
 ## Two Tracks
 
 ### Product Track

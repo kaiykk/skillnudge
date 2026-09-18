@@ -24,6 +24,10 @@ The current [FROZEN] product boundary is **Advise**: understand the blockage,
 plan the smallest useful intervention, inspect evidence, and explain a bounded
 recommendation. Review, Grow, and Watch are future capabilities.
 
+The long-term research direction is documented separately in the
+[North Star](docs/north-star.md). It is not a claim that the current Week 1
+implementation already provides an eval-driven capability lifecycle.
+
 ## Why SkillNudge?
 
 The Agent Skill ecosystem is growing quickly, but discovery is not the whole
@@ -231,6 +235,10 @@ These are roadmap directions, not completed capabilities.
 - [`docs/golden-cases.md`](docs/golden-cases.md) — D001, D002, and D003.
 - [`docs/skill-utility-drift.md`](docs/skill-utility-drift.md) — future
   model-aware lifecycle direction.
+- [`docs/north-star.md`](docs/north-star.md) — canonical long-term product and
+  research thesis.
+- [`docs/research/north-star-references.md`](docs/research/north-star-references.md)
+  — verified external bibliography for the North Star.
 - [`docs/research/`](docs/research/) — historical evidence and research
   boundaries.
 - [`docs/open-questions.md`](docs/open-questions.md) — unresolved design
