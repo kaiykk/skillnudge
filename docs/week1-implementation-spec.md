@@ -141,7 +141,7 @@ universal Candidate schema.
 
 ### Trace
 
-Each D001 run must create:
+Checkpoint 1 historical D001 runs create:
 
 ```text
 runs/<run_id>/
@@ -149,20 +149,19 @@ runs/<run_id>/
   01_capability_contract.json
   02_intervention_plan.json
   03_query_plan.json
-  04_candidate_acquisition.json
-  05_evidence_packs.json
   trace.jsonl
 ```
 
-Checkpoint 1 historical runs do not create `05_evidence_packs.json`.
-Checkpoint 3 runs create it only after successful Candidate Acquisition.
+Checkpoint 3 runs extend that layout with `04_candidate_acquisition.json` and
+`05_evidence_packs.json` only after successful Candidate Acquisition.
 Neither checkpoint creates fake `06_judgements.json` or
 `07_final_advice.json` artifacts.
 
-The acquisition artifact records corpus source/version, record counts, D001
-coverage, exact transformed FTS queries, raw per-query results, RRF data, and
-fused Top-30. Trace events are explicit runtime observations, not hidden
-chain-of-thought.
+The Checkpoint 1 acquisition artifact records corpus source/version, record
+counts, D001 coverage, exact transformed FTS queries, raw per-query results,
+RRF data, and fused Top-30. Checkpoint 3 adds the same retrieval evidence to
+the real planning run and then writes the bounded Evidence Packs. Trace events
+are explicit runtime observations, not hidden chain-of-thought.
 
 ## Frozen D001 Fixture
 

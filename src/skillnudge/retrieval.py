@@ -367,6 +367,39 @@ class BM25Retriever:
     def __exit__(self, *_: Any) -> None:
         self.close()
 
+    def build_metadata(self) -> dict[str, Any]:
+        """Return persisted corpus metadata without changing the retrieval path."""
+
+        rows = self.connection.execute(
+            "SELECT key, value FROM build_metadata ORDER BY key"
+        ).fetchall()
+        metadata: dict[str, Any] = {}
+        for row in rows:
+            try:
+                metadata[row["key"]] = json.loads(row["value"])
+            except (TypeError, JSONDecodeError):
+                metadata[row["key"]] = row["value"]
+        return metadata
+
+    def fetch_candidates(self, candidate_ids: Sequence[str]) -> list[dict[str, Any]]:
+        """Fetch complete local records for bounded evidence hydration."""
+
+        ids = list(dict.fromkeys(str(candidate_id) for candidate_id in candidate_ids))
+        if not ids:
+            return []
+        placeholders = ", ".join("?" for _ in ids)
+        rows = self.connection.execute(
+            f"""
+            SELECT candidate_id, name, description, body, repo, source_url,
+                   license, updated_at, source
+            FROM skills
+            WHERE candidate_id IN ({placeholders})
+            """,
+            ids,
+        ).fetchall()
+        by_id = {row["candidate_id"]: dict(row) for row in rows}
+        return [by_id[candidate_id] for candidate_id in ids if candidate_id in by_id]
+
     def retrieve(self, query: str, k: int = 50) -> list[dict[str, Any]]:
         if k < 1:
             return []
@@ -376,7 +409,8 @@ class BM25Retriever:
         rows = self.connection.execute(
             """
             SELECT skills.candidate_id, skills.name, skills.repo,
-                   skills.source_url, skills.source,
+                   skills.source_url, skills.license, skills.updated_at,
+                   skills.source,
                    bm25(skills_fts) AS raw_bm25_score
             FROM skills_fts
             JOIN skills ON skills.candidate_id = skills_fts.candidate_id
@@ -393,6 +427,8 @@ class BM25Retriever:
                 "name": row["name"],
                 "repo": row["repo"],
                 "source_url": row["source_url"],
+                "license": row["license"],
+                "updated_at": row["updated_at"],
                 "source": row["source"],
                 "raw_bm25_score": float(row["raw_bm25_score"]),
             }
@@ -426,6 +462,8 @@ def fuse_ranked_results(
                     "name": result.get("name"),
                     "repo": result.get("repo"),
                     "source_url": result.get("source_url"),
+                    "license": result.get("license"),
+                    "updated_at": result.get("updated_at"),
                     "source": result.get("source"),
                     "query_ranks": {},
                     "raw_bm25_scores": {},
