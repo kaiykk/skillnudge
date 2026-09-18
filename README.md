@@ -167,7 +167,7 @@ probes, not hardcoded answers.
 
 ## Current Status
 
-**[CHECKPOINT 1] Local retrieval baseline.**
+**[CHECKPOINT 4] Candidate Judgement + Final Advice in progress.**
 
 This repository currently contains:
 
@@ -175,14 +175,14 @@ This repository currently contains:
 - decision records;
 - golden cases;
 - a SQLite/FTS5/BM25/RRF candidate-acquisition baseline;
-- a frozen D001 query fixture and engineering smoke tests.
+- planning runtime and Checkpoint 3 Evidence Hydration;
+- Checkpoint 4 Candidate Judgement and minimal Final Advice runtime;
+- frozen golden-case fixtures and engineering smoke tests.
 
-It does **not** currently claim to provide:
+Checkpoint 4 is an implementation checkpoint, not a product-quality benchmark.
+It does not claim:
 
-- a working `skillnudge advise` command;
-- CapabilityPlanner, InterventionPlan runtime, or LLM QueryPlanner;
 - an embedding or reranking backend;
-- Evidence Hydration, Candidate Judge, or Final Advice;
 - automatic installation;
 - Review, Grow, or Watch;
 - automatic Skill Utility Drift detection;

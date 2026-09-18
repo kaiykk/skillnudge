@@ -20,8 +20,8 @@ observable checkpoints rather than implementing the whole runtime in one pass.
 1.1 [CLOSED] D001 candidate identity diagnostic
 2. [CLOSED FOR WEEK 1 WITH DEFERRED VALIDATION] CapabilityContract +
    InterventionPlan + QueryPlan runtime
-3. [IN PROGRESS] Candidate Acquisition + Evidence Hydration
-4. Judge + Final Advice
+3. [COMPLETE] Candidate Acquisition + Evidence Hydration
+4. [IN PROGRESS] Candidate Judgement + Final Advice
 5. D001 / D002 / D003 regression runs
 
 Checkpoint 2 is closed for Week 1 with one explicitly deferred validation:
@@ -100,6 +100,44 @@ Early-stop invariants remain:
   `05` artifact.
 - Clarification cases stop before Candidate Acquisition.
 - No `06_judgements.json` or `07_final_advice.json` is created in Checkpoint 3.
+
+## Checkpoint 4 Scope
+
+Checkpoint 4 consumes the preserved Checkpoint 3 Evidence Packs and stops after
+minimal Final Advice:
+
+```text
+Existing Evidence Packs
+-> Candidate Judgement
+-> Final Advice
+-> STOP
+```
+
+Candidate Judgement runs independently for each hydrated candidate and uses the
+frozen `CandidateJudgement` schema. It estimates incremental intervention
+utility against doing nothing; retrieval relevance and RRF rank are inputs
+only. Fit, expected gain, trust, and friction remain separate categorical
+dimensions with no numeric score.
+
+Evidence provenance is local EvidencePack semantics, not a new provenance
+subsystem. Metadata completeness alone produces `complete_unverified`; only an
+explicit verification basis may produce `verified`. Missing metadata remains
+`unknown` or `partial`.
+
+Final Advice consumes CandidateJudgements, removes rejected and insufficient
+candidates, and returns at most one primary plus one supporting intervention,
+with at most one distinct companion. `no_intervention`, `insufficient_evidence`,
+`needs_clarification`, and `source_error` remain valid outcomes.
+
+D003 and clarification paths write Final Advice without Candidate Judgement
+model calls. An unsupported-only acquisition path returns `source_error`; a
+partially unsupported D002 path may still judge acquired Skill candidates but
+must preserve the unevaluated Integration surface as an uncertainty.
+
+Checkpoint 4 does not rerun Planning or Retrieval and does not add source
+discovery, entity resolution, installation, embeddings, reranking, or
+integration marketplace support. Candidate Judge and Final Advice are the final
+Week 1 runtime stages; Checkpoint 5 remains regression validation.
 
 ## Checkpoint 1 Scope
 
@@ -192,8 +230,9 @@ Evidence Hydration, Candidate Judge, Final Advice, embeddings, vector DB,
 dense/hybrid retrieval, reranker training, frontend/GUI, auto-install,
 Review/Grow/Watch, personalization, multi-agent behavior, or background jobs.
 Checkpoint 3 implements only the local Skill acquisition and minimal Evidence
-Hydration path described above; Candidate Judge and Final Advice remain
-excluded.
+Hydration path described above. Checkpoint 4 implements Candidate Judgement and
+minimal Final Advice; Judge and Advice do not add source discovery or retrieval
+infrastructure.
 
 ## Stop Conditions
 

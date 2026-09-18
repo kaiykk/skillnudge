@@ -73,14 +73,20 @@ def _body_sha256(body: str) -> str:
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
 
 
-def _provenance(record: Mapping[str, Any]) -> tuple[str, list[str]]:
+def _provenance(
+    record: Mapping[str, Any],
+    *,
+    verification_basis: str | None = None,
+) -> tuple[str, list[str]]:
     fields = ("repo", "source_url", "license", "updated_at", "source")
     gaps = [field for field in fields if not record.get(field)]
-    if not gaps:
-        return "verified", []
-    if len(gaps) < len(fields):
+    if len(gaps) == len(fields):
+        return "unknown", [f"missing_{field}" for field in gaps]
+    if gaps:
         return "partial", [f"missing_{field}" for field in gaps]
-    return "unknown", [f"missing_{field}" for field in gaps]
+    if verification_basis:
+        return "verified", []
+    return "complete_unverified", []
 
 
 class CandidateAcquisitionRuntime:
@@ -499,4 +505,3 @@ class CandidateAcquisitionRuntime:
             {"requested_count": len(top_10), "hydrated_count": len(packs)},
         )
         return evidence
-
