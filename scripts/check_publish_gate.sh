@@ -6,6 +6,9 @@ cd "$repo_root"
 
 is_protected_path() {
     case "$1" in
+        .env.example|*/.env.example)
+            return 1
+            ;;
         .env|.env.*|*/.env|*/.env.*|config/*.local.env|config/*secret*|config/*credential*)
             return 0
             ;;
