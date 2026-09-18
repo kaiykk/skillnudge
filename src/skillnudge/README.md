@@ -1,8 +1,13 @@
 # `src/skillnudge`
 
-This package contains the Checkpoint 1 local candidate-acquisition baseline:
-streaming corpus normalization, SQLite FTS5 storage, raw BM25 retrieval, and
-deterministic RRF.
+This package contains the Week 1 Phase 1 runtime:
 
-It deliberately does not implement capability framing, intervention planning,
-candidate judgement, final advice, or live discovery.
+- capability framing, intervention planning, and query planning;
+- local SQLite FTS5 storage, raw BM25 retrieval, and deterministic RRF;
+- Evidence Hydration;
+- Candidate Judgement and bounded Final Advice;
+- a composed development entry point:
+  `PYTHONPATH=src python3 -m skillnudge advise "<request>" --trace`.
+
+It does not implement live discovery, automatic installation, Review, Grow,
+Watch, embeddings, reranking, or capability self-evolution.

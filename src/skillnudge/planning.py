@@ -111,13 +111,19 @@ class PlanningRuntime:
     def __init__(self, model: PlanningModel):
         self.model = model
 
-    def run(self, envelope: InputEnvelope, run_dir: str | Path) -> PlanningRunResult:
+    def run(
+        self,
+        envelope: InputEnvelope,
+        run_dir: str | Path,
+        *,
+        emit_run_completed: bool = True,
+    ) -> PlanningRunResult:
         input_data = validate_input_envelope(envelope.as_dict())
         output_dir = Path(run_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         run_id = output_dir.name
         trace = _TraceWriter(output_dir / "trace.jsonl", run_id)
-        trace.emit("run_started", "Planning Runtime", {"checkpoint": 2})
+        trace.emit("run_started", "Planning Runtime", {"runtime": "planning"})
         _write_json(
             output_dir / "00_input.json",
             {"schema_version": "checkpoint2.input.v0", "run_id": run_id, "input": input_data},
@@ -200,7 +206,15 @@ class PlanningRuntime:
             raise
         trace.emit("cross_stage_validation", "Planning Runtime", {"valid": True})
         _write_json(output_dir / "03_query_plan.json", query_result)
-        trace.emit("run_completed", "Planning Runtime", {"candidate_acquisition_invoked": False})
+        if emit_run_completed:
+            trace.emit(
+                "run_completed",
+                "Planning Runtime",
+                {
+                    "runtime": "planning",
+                    "candidate_acquisition_invoked": False,
+                },
+            )
         return PlanningRunResult(
             run_id=run_id,
             run_dir=str(output_dir),

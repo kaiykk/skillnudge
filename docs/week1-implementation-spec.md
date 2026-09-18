@@ -22,7 +22,8 @@ observable checkpoints rather than implementing the whole runtime in one pass.
    InterventionPlan + QueryPlan runtime
 3. [COMPLETE] Candidate Acquisition + Evidence Hydration
 4. [COMPLETE] Candidate Judgement + Final Advice
-5. NEXT: D001 / D002 / D003 regression runs
+5. [COMPLETE] Phase 1 Advise runtime, CLI, and D001 / D002 / D003 release
+   readiness
 
 Checkpoint 2 is closed for Week 1 with one explicitly deferred validation:
 live Integration-primary semantic evidence. The only live Integration attempt
@@ -137,7 +138,8 @@ must preserve the unevaluated Integration surface as an uncertainty.
 Checkpoint 4 does not rerun Planning or Retrieval and does not add source
 discovery, entity resolution, installation, embeddings, reranking, or
 integration marketplace support. Candidate Judge and Final Advice are the final
-Week 1 runtime stages; Checkpoint 5 remains regression validation.
+Week 1 runtime stages. Checkpoint 5 composes these existing stages behind one
+user-facing development CLI and validates the complete Phase 1 loop.
 
 The finalization patch also makes Checkpoint 4 judgement progress durable:
 `06_judgements.json` is atomically updated after each successful candidate,
@@ -145,6 +147,56 @@ records `stage_status`, and stores an EvidencePack body fingerprint for bounded
 resume. A later run skips only candidates whose `candidate_id` and current
 `content.body_sha256` still match. D001 completed its single post-patch live
 continuation with all 10 judgements and Final Advice.
+
+## Checkpoint 5 Scope
+
+Checkpoint 5 completed the Phase 1 composition boundary:
+
+```text
+PlanningRuntime
+-> CandidateAcquisitionRuntime
+-> JudgeRuntime
+```
+
+The development entry point is:
+
+```bash
+PYTHONPATH=src python3 -m skillnudge advise "<request>" --trace
+```
+
+It renders concise Final Advice by default and exposes the run directory with
+`--trace`. The local SQLite index may be supplied with `--database` or
+`SKILLNUDGE_DATABASE`; an existing local Checkpoint 1 index is auto-discovered
+when one is present. The CLI never prints internal JSON artifacts or model
+private chain-of-thought by default.
+
+The composition preserves the existing early stops:
+
+- `no_intervention` writes `00` through `03` and `07` only;
+- clarification writes `00` through `03` and `07` only;
+- unsupported-only acquisition produces `source_error` without fake evidence
+  packs or Judge calls.
+
+Provider interruption during Candidate Judgement leaves the incremental
+`06_judgements.json` artifact intact. Re-running with
+`--resume --run-dir <existing-run>` skips Planning and Retrieval and resumes
+only the incomplete Judge path. `judge_call_count` means new Candidate
+Judgement provider calls in the current invocation; resumed judgement count and
+Final Advice calls are reported separately.
+
+Checkpoint 5 did not add an intervention family, change retrieval constants,
+modify frozen contracts, or introduce Review, Grow, Watch, installation,
+embeddings, reranking, or self-evolution.
+
+Phase 1 release-readiness evidence:
+
+- the full unittest suite passes, including Checkpoint 1 regression tests;
+- D001 completed the real search, hydration, Judge, resume, and Advice path;
+- D002 completed the real available-family search, hydration, Judge, and Advice
+  path;
+- D003 and clarification stop before Candidate Acquisition and Judge;
+- controlled unsupported-only acquisition returns `source_error`;
+- `compileall`, `git diff --check`, and the publish gate pass.
 
 ## Checkpoint 1 Scope
 

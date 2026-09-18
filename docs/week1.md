@@ -5,6 +5,9 @@
 - `[FROZEN]` Week 1 is CLI-first and Advise-only.
 - `[IMPLEMENTED CHECKPOINT 1]` Local corpus indexing, BM25/RRF raw retrieval,
   and D001 trace artifacts are implemented.
+- `[COMPLETE CHECKPOINT 5]` The existing Planning, Acquisition, and Judge
+  runtimes are composed behind a development `advise` CLI; Phase 1 release
+  readiness is complete within the frozen Week 1 envelope.
 - `[FROZEN]` Week 1 excludes Review, Grow, Watch, semantic retrieval, and
   automatic installation.
 - `[WORKING HYPOTHESIS]` A lightweight end-to-end loop can validate the product
@@ -33,14 +36,22 @@ Input
 skillnudge advise "<request>" --trace
 ```
 
-当前仓库尚未提供完整的 `skillnudge advise` 命令；Checkpoint 1 通过
-`scripts/run_d001.py` 提供局部 smoke path。
+当前仓库提供开发态的 `skillnudge advise` 模块命令；它需要一个本地
+Checkpoint 1 SQLite index 和显式配置的 provider：
+
+```bash
+PYTHONPATH=src python3 -m skillnudge advise "<request>" \
+  --database /path/to/skills.sqlite3 \
+  --trace
+```
+
+`--resume --run-dir <existing-run>` 可从中断的 Candidate Judgement 继续。
 
 ## Definition of Done
 
 ### G1 — Runtime
 
-未来实现后，CLI 能够运行完整的 Advise runtime，且每一层有可检查边界。
+CLI 能够运行完整的 Advise runtime，且每一层有可检查边界。
 
 ### G2 — Laptop
 

@@ -74,17 +74,17 @@ Separate semantic relevance from expected gain, trust, friction, and stage fit.
 
 Return zero to two bounded recommendations, or explicitly recommend nothing.
 
-These are the target V0 capabilities. The current repository already contains
-the planning, local retrieval, evidence hydration, and Candidate Judgement /
-Final Advice runtime surfaces; the Week 1 provider-backed final-stage
-validation is complete.
+These are the target V0 capabilities. The current repository contains the
+planning, local retrieval, evidence hydration, Candidate Judgement / Final
+Advice runtime surfaces, and a composed development `advise` CLI. Phase 1
+release-readiness validation is complete within the current Week 1 envelope.
 
 ## Quick Start
 
 ### Development Preview
 
-The repository currently exposes a direct Python development workflow, not a
-packaged end-user CLI.
+The repository exposes a direct Python development CLI, not a packaged
+end-user console executable.
 
 ```bash
 git clone https://github.com/kaiykk/skillnudge.git
@@ -108,6 +108,26 @@ Live planning and judgement runs require an explicitly configured
 OpenAI-compatible provider. See
 [`docs/provider-configuration.md`](docs/provider-configuration.md) for the
 local-only configuration path. Never commit or paste provider credentials.
+
+To run the composed Phase 1 advisor against a local Checkpoint 1 SQLite index:
+
+```bash
+PYTHONPATH=src python3 -m skillnudge advise \
+  "I want to build a better UI prototype but do not know how to describe it" \
+  --database /path/to/skills.sqlite3 \
+  --trace
+```
+
+If Candidate Judgement is interrupted after some candidates complete, resume
+without rerunning Planning or Retrieval:
+
+```bash
+PYTHONPATH=src python3 -m skillnudge advise \
+  "I want to build a better UI prototype but do not know how to describe it" \
+  --resume \
+  --run-dir runs/<existing-run> \
+  --trace
+```
 
 ## Example Use Case
 
@@ -169,12 +189,12 @@ not imply that evaluation or capability evolution is implemented today.
 - Local SQLite FTS5 / BM25 retrieval
 - Evidence Hydration
 - Observable runtime traces
+- Composed Phase 1 `advise` development CLI with bounded early stops and resume
 - Candidate Judgement and minimal Final Advice runtime code
 
-### In progress
+### Phase 1 status
 
-- Provider-backed validation of Candidate Judgement and Final Advice
-- Completion review for the current Week 1 advisor loop
+- Phase 1 D001 / D002 / D003 release-readiness validation is complete
 
 ### Not yet
 

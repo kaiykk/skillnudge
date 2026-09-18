@@ -4,14 +4,15 @@
 
 - `[FROZEN]` Trace is a first-class, explicit runtime artifact.
 - `[FROZEN]` Trace does not contain private chain-of-thought or secrets.
-- `[IMPLEMENTED CHECKPOINT 1]` D001 produces the first five checkpoint artifacts
-  plus `trace.jsonl`; later runtime artifacts remain unimplemented.
+- `[IMPLEMENTED CHECKPOINT 5]` The Phase 1 composed runtime produces the full
+  artifact path when the request searches a supported family; valid early
+  stops omit `04` through `06`.
 - `[WORKING HYPOTHESIS]` The proposed artifact boundaries are sufficient for
   diagnosing V0 failures.
 - `[FUTURE]` Automated Review, utility attribution, and long-term monitoring.
 
-Trace 是 V0 的可观察性设计。Checkpoint 1 已提供 D001 的局部运行记录系统；
-完整 runtime 的记录仍待后续 checkpoint。
+Trace 是 V0 的可观察性设计。Phase 1 的组合 runtime 已经提供完整运行记录，
+并在当前 Week 1 范围内完成发布就绪验证。
 
 ## Purpose
 
@@ -53,7 +54,7 @@ Trace 的目标是让后续可以区分：
 
 ## Run Artifact Layout
 
-未来每次运行可以保存为：
+Phase 1 每次完整运行保存为：
 
 ```text
 runs/<run_id>/
@@ -70,6 +71,8 @@ trace.jsonl
 ```
 
 `runs/` 默认 gitignored，除非某个脱敏、最小化的 run 被明确选为设计证据。
+Provider interruption 后，`06_judgements.json` 可保持 `in_progress`，并通过
+CLI 的 `--resume` 继续。
 
 ## Trace Requirements
 

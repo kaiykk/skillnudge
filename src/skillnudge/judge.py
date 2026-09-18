@@ -751,6 +751,8 @@ class JudgeRunResult:
     judgements: list[dict[str, Any]]
     final_advice: dict[str, Any]
     judge_call_count: int
+    resumed_judgement_count: int = 0
+    final_advice_call_count: int = 0
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -758,6 +760,9 @@ class JudgeRunResult:
             "run_dir": self.run_dir,
             "judged_candidate_count": len(self.judgements),
             "judge_call_count": self.judge_call_count,
+            "resumed_judgement_count": self.resumed_judgement_count,
+            "final_advice_call_count": self.final_advice_call_count,
+            "model_call_count": self.judge_call_count + self.final_advice_call_count,
             "disposition_counts": {
                 disposition: sum(
                     judgement["disposition"] == disposition
@@ -848,6 +853,8 @@ class JudgeRuntime:
             judgement_path,
             packs,
         )
+        resumed_judgement_count = len(judgements)
+        judge_call_counter = [0]
         completed_ids = {judgement["candidate_id"] for judgement in judgements}
         if persisted_status == "complete" and len(completed_ids) != len(packs):
             raise JudgeStageError(
@@ -908,6 +915,7 @@ class JudgeRuntime:
                 ),
                 validator=validate_candidate_judgement,
                 context={"candidate_id": candidate_id},
+                call_counter=judge_call_counter,
             )
             if judgement["candidate_id"] != candidate_id:
                 raise JudgeStageError(
@@ -962,9 +970,14 @@ class JudgeRuntime:
             run_id,
             "stage_complete",
             "Candidate Judgement",
-            {"judged_candidate_count": len(judgements)},
+            {
+                "judged_candidate_count": len(judgements),
+                "resumed_judgement_count": resumed_judgement_count,
+                "new_model_call_count": judge_call_counter[0],
+            },
         )
 
+        final_advice_call_counter = [0]
         _append_trace(
             trace_path,
             run_id,
@@ -989,6 +1002,7 @@ class JudgeRuntime:
                 canonical_names,
             ),
             context={},
+            call_counter=final_advice_call_counter,
         )
         if _has_unsupported_integration_warning(acquisition):
             uncertainties = list(advice["uncertainties"])
@@ -1014,14 +1028,19 @@ class JudgeRuntime:
             run_id,
             "stage_complete",
             "Final Advice",
-            {"status": advice["status"]},
+            {
+                "status": advice["status"],
+                "model_call_count": final_advice_call_counter[0],
+            },
         )
         return JudgeRunResult(
-            run_id,
-            str(output_dir),
-            judgements,
-            advice,
-            len(judgements),
+            run_id=run_id,
+            run_dir=str(output_dir),
+            judgements=judgements,
+            final_advice=advice,
+            judge_call_count=judge_call_counter[0],
+            resumed_judgement_count=resumed_judgement_count,
+            final_advice_call_count=final_advice_call_counter[0],
         )
 
     def _finish_without_judge(
@@ -1074,7 +1093,15 @@ class JudgeRuntime:
             "Final Advice",
             {"status": status, "judge_call_count": 0},
         )
-        return JudgeRunResult(run_id, str(output_dir), [], advice, 0)
+        return JudgeRunResult(
+            run_id=run_id,
+            run_dir=str(output_dir),
+            judgements=[],
+            final_advice=advice,
+            judge_call_count=0,
+            resumed_judgement_count=0,
+            final_advice_call_count=0,
+        )
 
     def _model_call(
         self,
@@ -1086,12 +1113,15 @@ class JudgeRuntime:
         prompt: str,
         validator: Callable[[Any], dict[str, Any]],
         context: Mapping[str, Any],
+        call_counter: list[int] | None = None,
     ) -> dict[str, Any]:
         current_prompt = prompt
         invalid_response: Any = None
         errors: list[str] = []
         for repair_attempt in range(2):
             started = time.perf_counter()
+            if call_counter is not None:
+                call_counter[0] += 1
             try:
                 response = self.model.generate_structured(
                     stage=stage,

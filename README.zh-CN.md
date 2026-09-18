@@ -73,14 +73,14 @@ SkillNudge 进一步追问：
 返回 0–2 个有边界的建议，也可以明确建议不介入。
 
 这些是 V0 的目标能力。当前仓库已经包含 planning、本地检索、Evidence
-Hydration 以及 Candidate Judgement / Final Advice 的运行时实现；Week 1 最后
-阶段的 provider-backed 验证已经完成。
+Hydration、Candidate Judgement / Final Advice 运行时，以及组合后的开发态
+`advise` CLI。Phase 1 已在当前 Week 1 边界内完成发布就绪验证。
 
 ## 快速开始
 
 ### Development Preview
 
-当前仓库提供直接运行的 Python 开发流程，还不是打包后的终端用户 CLI。
+当前仓库提供直接运行的 Python 开发态 CLI，还不是打包后的终端用户命令。
 
 ```bash
 git clone https://github.com/kaiykk/skillnudge.git
@@ -102,6 +102,26 @@ benchmark。
 实时 planning 和 judgement 需要显式配置 OpenAI-compatible provider。请参阅
 [`docs/provider-configuration.md`](docs/provider-configuration.md) 中的本地配置
 说明。不要提交或粘贴 provider 凭据。
+
+使用本地 Checkpoint 1 SQLite index 运行组合后的 Phase 1 advisor：
+
+```bash
+PYTHONPATH=src python3 -m skillnudge advise \
+  "我想做一个更好的 UI 原型，但不知道怎样描述自己的需求" \
+  --database /path/to/skills.sqlite3 \
+  --trace
+```
+
+如果 Candidate Judgement 在部分候选完成后中断，可以从已有产物继续，不会重新
+运行 Planning 或 Retrieval：
+
+```bash
+PYTHONPATH=src python3 -m skillnudge advise \
+  "我想做一个更好的 UI 原型，但不知道怎样描述自己的需求" \
+  --resume \
+  --run-dir runs/<existing-run> \
+  --trace
+```
 
 ## 示例场景
 
@@ -163,12 +183,12 @@ Capability Control Plane
 - 本地 SQLite FTS5 / BM25 检索
 - Evidence Hydration
 - 可观察的 Runtime Trace
+- 组合后的 Phase 1 `advise` 开发态 CLI，支持有边界的早停与 resume
 - Candidate Judgement 与最小 Final Advice 运行时代码
 
-### 正在进行
+### Phase 1 状态
 
-- Candidate Judgement 与 Final Advice 的 provider-backed 验证
-- 当前 Week 1 advisor loop 的完成复核
+- Phase 1 D001 / D002 / D003 发布就绪验证已完成
 
 ### 尚未提供
 

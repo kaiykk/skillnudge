@@ -481,7 +481,10 @@ class Checkpoint4RuntimeTests(unittest.TestCase):
                 ]
             )
             result = JudgeRuntime(second).run(run_dir)
-            self.assertEqual(result.judge_call_count, 3)
+            self.assertEqual(result.judge_call_count, 1)
+            self.assertEqual(result.resumed_judgement_count, 2)
+            self.assertEqual(result.final_advice_call_count, 1)
+            self.assertEqual(result.as_dict()["model_call_count"], 2)
             self.assertEqual(
                 [call["stage"] for call in second.calls],
                 ["Candidate Judgement", "Final Advice"],
