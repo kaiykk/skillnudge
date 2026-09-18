@@ -1,5 +1,8 @@
 # Checkpoint 1.1: D001 Candidate Identity Diagnostic
 
+- Checkpoint 1 status: `CLOSED`
+- Checkpoint 1.1 status: `CLOSED`
+
 ## Scope and Evidence Boundary
 
 This diagnostic answers one question: what do the two same-name Top-50 records
@@ -170,22 +173,33 @@ same-name frequency does not provide identity evidence here.
 
 ## 5. Classification
 
-canonical_identity: `not_retrieved`
+canonical_identity:
 
-capability_family: `retrieved`
+- raw_window: `not_retrieved`
+- fused_pool: `not_retrieved`
+
+capability_family:
+
+- raw_window: `retrieved`
+- fused_pool: `not_retained`
 
 source_lineage: `unresolved`
 
 Preferred summary:
 
-`CANONICAL_IDENTITY_NOT_RETRIEVED; CAPABILITY_FAMILY_RETRIEVED; PROVENANCE_UNRESOLVED`
+`CANONICAL_IDENTITY_NOT_RETRIEVED; CAPABILITY_FAMILY_RAW_RETRIEVED_NOT_RETAINED_IN_FUSED_POOL; PROVENANCE_UNRESOLVED`
 
 The canonical body is present in the corpus and identity-verified by the pinned
 official hash, but its canonical identity was not retrieved into the configured
-Top-50 window or the fused Top-30. The capability family was retrieved: in
-particular, `web_20486` has exactly the same description as canonical and
-materially overlapping UI/UX recommendation capabilities. That evidence
-supports capability-family similarity, not canonical source identity.
+Top-50 raw window or the fused Top-30. The capability family was retrieved in
+the per-query raw window: `web_20486` was present at raw BM25 rank 33 for
+`ui ux prototyping guidance`, but it was not retained in the fused Top-30
+candidate pool. It has exactly the same description as canonical and materially
+overlapping UI/UX recommendation capabilities. That evidence supports
+capability-family similarity, not canonical source identity.
+
+"A capability-family candidate was retrieved in the per-query raw window, but
+it was not retained in the fused Top-30 candidate pool."
 
 The body hash and structure of `web_20486` diverge from canonical, and its raw
 source provenance is unavailable. These facts leave source lineage unresolved.
@@ -198,3 +212,9 @@ separate signals. Future Evidence Hydration or Judge work may need to preserve
 this distinction, but this amendment designs no new architecture and does not
 justify query changes, embeddings, rerankers, deduplication rules, or runtime
 changes.
+
+Implementation observation:
+
+"Fusion/truncation can discard a potentially useful candidate that was
+retrieved by one semantic query. This is an observed failure mode, not yet
+evidence that RRF, Top-K, or the retrieval architecture should change."
