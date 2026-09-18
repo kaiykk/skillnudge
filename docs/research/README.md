@@ -10,6 +10,7 @@
 
 Canonical long-term thesis: [`../north-star.md`](../north-star.md).
 Canonical North Star bibliography: [`north-star-references.md`](north-star-references.md).
+Phase 1 → Phase 2 bridge: [`phase1-to-phase2-bridge.md`](phase1-to-phase2-bridge.md).
 
 ## Two Tracks
 

@@ -258,6 +258,8 @@ Week 1 exists to make these control points observable and reviewable.
 
 **Future Week 2-3 direction**
 
+Transition memo: [`Phase 1 → Phase 2 bridge`](research/phase1-to-phase2-bridge.md)
+
 Question:
 
 > Did the intervention actually improve the downstream trajectory?
