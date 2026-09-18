@@ -18,13 +18,23 @@ observable checkpoints rather than implementing the whole runtime in one pass.
 
 1. [CLOSED] Skill Corpus -> Local SQLite -> FTS5/BM25 -> D001 raw retrieval -> Trace
 1.1 [CLOSED] D001 candidate identity diagnostic
-2. [IN PROGRESS] CapabilityContract + InterventionPlan + QueryPlan runtime
-3. Candidate Acquisition + Evidence Hydration
+2. [CLOSED FOR WEEK 1 WITH DEFERRED VALIDATION] CapabilityContract +
+   InterventionPlan + QueryPlan runtime
+3. [IN PROGRESS] Candidate Acquisition + Evidence Hydration
 4. Judge + Final Advice
 5. D001 / D002 / D003 regression runs
 
-The current implementation task is Checkpoint 2. Candidate Acquisition remains
-out of scope until this planning checkpoint is complete and reviewed.
+Checkpoint 2 is closed for Week 1 with one explicitly deferred validation:
+live Integration-primary semantic evidence. The only live Integration attempt
+failed at the provider transport boundary before Capability Framing returned;
+this is not semantic evidence that Integration routing failed. The deterministic
+runtime can represent Integration-primary routing.
+
+For the rest of Week 1, `planning.capability.v1`,
+`planning.intervention.v1`, and `planning.query.v0` are frozen. Do not
+prompt-tune them unless a later end-to-end failure directly proves that they
+block the product loop. Frozen schemas are not rewritten for this status
+change.
 
 ## Checkpoint 2 Scope
 
@@ -46,11 +56,50 @@ response fails explicitly. The live model name must be supplied through
 `SKILLNUDGE_MODEL`; no durable model default is committed.
 
 Acceptance cases are D001 (Skill primary with Resource companion), D002
-(Integration primary with Skill secondary), and D003 (empty
-`missing_capabilities`, `no_intervention`, no Query Planning model call).
-Clarification-edge behavior is also covered. Candidate Acquisition, Evidence
-Hydration, Candidate Judgement, and Final Advice remain excluded from this
-checkpoint.
+(`search`, with Skill or Integration accepted as primary according to the
+observed blocker), and D003 (empty `missing_capabilities`,
+`no_intervention`, no Query Planning model call). Clarification-edge behavior
+is also covered. The live Integration-primary validation remains deferred.
+
+## Checkpoint 3 Scope
+
+Checkpoint 3 connects the real planning output to the existing local retrieval
+baseline and stops after Evidence Hydration:
+
+```text
+Raw Request
+-> Capability Framing
+-> Intervention Planning
+-> Query Planning
+-> Candidate Acquisition
+-> Evidence Hydration
+-> STOP
+```
+
+Checkpoint 3 reuses the frozen Checkpoint 1 SQLite FTS5, BM25, multi-query, and
+RRF implementation. It retrieves Top-50 per Skill semantic query, preserves
+the semantic query and the translated FTS query, fuses a Top-30 candidate pool,
+and hydrates only the fused Top-10. It does not tune BM25, FTS field weights,
+Top-K, RRF, `rrf_k`, the corpus, query prompts, or add embeddings/vector
+infrastructure.
+
+Week 1 fully supports `family=skill`. If planning selects an Integration family
+without an acquisition surface, the runtime returns and traces
+`unsupported_family_surface`; it never silently converts Integration into
+Skill. Resource acquisition is non-blocking unless an accepted planning case
+requires it.
+
+The implementation data structure for Evidence Packs is local runtime output,
+not a new frozen product contract. Missing repository, source, license, or
+update metadata remains null/unknown; provenance is never inferred. Candidate
+Acquisition and Evidence Hydration do not invoke Judge or Final Advice.
+
+Early-stop invariants remain:
+
+- D003 ends at `no_intervention -> QueryPlan skipped` and creates no `04` or
+  `05` artifact.
+- Clarification cases stop before Candidate Acquisition.
+- No `06_judgements.json` or `07_final_advice.json` is created in Checkpoint 3.
 
 ## Checkpoint 1 Scope
 
@@ -101,11 +150,14 @@ runs/<run_id>/
   02_intervention_plan.json
   03_query_plan.json
   04_candidate_acquisition.json
+  05_evidence_packs.json
   trace.jsonl
 ```
 
-Do not create fake `05_evidence_packs.json`, `06_judgements.json`, or
-`07_final_advice.json` artifacts at this checkpoint.
+Checkpoint 1 historical runs do not create `05_evidence_packs.json`.
+Checkpoint 3 runs create it only after successful Candidate Acquisition.
+Neither checkpoint creates fake `06_judgements.json` or
+`07_final_advice.json` artifacts.
 
 The acquisition artifact records corpus source/version, record counts, D001
 coverage, exact transformed FTS queries, raw per-query results, RRF data, and
@@ -135,11 +187,14 @@ benchmark. Do not use synthetic metrics to claim recommendation quality.
 
 ## Explicit Non-Goals
 
-Checkpoint 1 does not implement CapabilityPlanner, Intervention Router, LLM
+Checkpoint 1 did not implement CapabilityPlanner, Intervention Router, LLM
 QueryPlanner, live discovery, skills.sh or Plugin catalog adapters, web search,
 Evidence Hydration, Candidate Judge, Final Advice, embeddings, vector DB,
 dense/hybrid retrieval, reranker training, frontend/GUI, auto-install,
 Review/Grow/Watch, personalization, multi-agent behavior, or background jobs.
+Checkpoint 3 implements only the local Skill acquisition and minimal Evidence
+Hydration path described above; Candidate Judge and Final Advice remain
+excluded.
 
 ## Stop Conditions
 
