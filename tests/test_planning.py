@@ -240,13 +240,38 @@ class PlanningRuntimeTests(unittest.TestCase):
             model.generate_structured(stage="Capability Framing", prompt="{}", prompt_version="test")
 
     def test_live_provider_requires_explicit_model_configuration(self):
-        with patch.dict(os.environ, {}, clear=True):
-            model = OpenAICompatibleModel.from_environment()
+        from skillnudge import planning_model
+
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(planning_model, "LOCAL_PROVIDER_ENV_PATH", Path(directory) / "missing.env"):
+                with patch.dict(os.environ, {}, clear=True):
+                    model = OpenAICompatibleModel.from_environment()
         self.assertEqual(model.model_name, "")
         with self.assertRaises(LiveModelProviderUnavailable):
             OpenAICompatibleModel(api_key="test-key").generate_structured(
                 stage="Capability Framing", prompt="{}", prompt_version="test"
             )
+
+    def test_live_provider_does_not_fallback_to_openai_api_key_for_third_party(self):
+        from skillnudge import planning_model
+
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(planning_model, "LOCAL_PROVIDER_ENV_PATH", Path(directory) / "missing.env"):
+                with patch.dict(
+                    os.environ,
+                    {
+                        "SKILLNUDGE_MODEL": "third-party-model",
+                        "SKILLNUDGE_MODEL_BASE_URL": "https://third-party.example/v1",
+                        "OPENAI_API_KEY": "openai-key-must-not-be-used",
+                    },
+                    clear=True,
+                ):
+                    model = OpenAICompatibleModel.from_environment()
+        self.assertEqual(model.model_name, "third-party-model")
+        self.assertEqual(model.base_url, "https://third-party.example/v1")
+        self.assertFalse(model.api_key)
+        with self.assertRaises(LiveModelProviderUnavailable):
+            model.generate_structured(stage="Capability Framing", prompt="{}", prompt_version="test")
 
     def test_live_provider_reads_local_configuration_without_overriding_environment(self):
         from skillnudge import planning_model
@@ -268,9 +293,19 @@ class PlanningRuntimeTests(unittest.TestCase):
                 self.assertEqual(local_model.base_url, "https://local.example/v1")
                 self.assertEqual(local_model.timeout_seconds, 12.0)
 
-                with patch.dict(os.environ, {"SKILLNUDGE_MODEL": "env-model"}, clear=True):
+                with patch.dict(
+                    os.environ,
+                    {
+                        "SKILLNUDGE_MODEL": "env-model",
+                        "SKILLNUDGE_MODEL_API_KEY": "env-value",
+                        "SKILLNUDGE_MODEL_BASE_URL": "https://env.example/v1",
+                    },
+                    clear=True,
+                ):
                     env_model = OpenAICompatibleModel.from_environment()
                 self.assertEqual(env_model.model_name, "env-model")
+                self.assertEqual(env_model.api_key, "env-value")
+                self.assertEqual(env_model.base_url, "https://env.example/v1")
 
     def test_production_planning_has_no_golden_case_routing(self):
         production = "\n".join(

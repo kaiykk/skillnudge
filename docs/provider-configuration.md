@@ -19,7 +19,9 @@ SKILLNUDGE_MODEL_TIMEOUT_SECONDS=60
 `SKILLNUDGE_MODEL_BASE_URL` is optional when using the default OpenAI endpoint.
 Environment variables take precedence over the local file. The provider
 adapter reads this file with the standard library; no dotenv package is
-required.
+required. The adapter uses only `SKILLNUDGE_MODEL_API_KEY` for authentication;
+it never falls back to `OPENAI_API_KEY`, including when the configured base URL
+is a third-party OpenAI-compatible endpoint.
 
 Never put a real key in `provider.local.env.example`, source files, tests,
 review packets, chat messages, or committed files. Do not upload

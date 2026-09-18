@@ -81,7 +81,7 @@ class OpenAICompatibleModel:
             return os.environ.get(name) or local_env.get(name, default)
 
         return cls(
-            api_key=setting("SKILLNUDGE_MODEL_API_KEY") or os.environ.get("OPENAI_API_KEY"),
+            api_key=setting("SKILLNUDGE_MODEL_API_KEY"),
             base_url=setting("SKILLNUDGE_MODEL_BASE_URL", "https://api.openai.com/v1"),
             model_name=setting("SKILLNUDGE_MODEL"),
             timeout_seconds=float(setting("SKILLNUDGE_MODEL_TIMEOUT_SECONDS", "60")),
