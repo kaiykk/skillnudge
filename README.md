@@ -1,194 +1,99 @@
-# SkillNudge
+<div align="center">
+  <p>
+    <a href="README.md">English</a>
+    ·
+    <a href="README.zh-CN.md">简体中文</a>
+  </p>
+  <p>
+    <a href="#quick-start">Quick Start</a>
+    ·
+    <a href="#why-skillnudge">Why SkillNudge</a>
+    ·
+    <a href="#north-star">North Star</a>
+    ·
+    <a href="#docs">Docs</a>
+  </p>
+  <p>
+    <a href="https://github.com/kaiykk/skillnudge/blob/main/LICENSE">
+      <img src="https://img.shields.io/github/license/kaiykk/skillnudge?style=flat-square" alt="MIT License">
+    </a>
+    <a href="https://github.com/kaiykk/skillnudge/stargazers">
+      <img src="https://img.shields.io/github/stars/kaiykk/skillnudge?style=flat-square" alt="GitHub stars">
+    </a>
+    <a href="https://github.com/kaiykk/skillnudge/commits/main">
+      <img src="https://img.shields.io/github/last-commit/kaiykk/skillnudge?style=flat-square" alt="Last commit">
+    </a>
+  </p>
+</div>
 
-**The right capability, only when it helps.**
+<!-- Official Week 1 hero image. -->
+<p align="center">
+  <img src="./assets/hero.png" alt="SkillNudge" width="100%">
+</p>
 
-SkillNudge is an open-source, local-first capability intervention advisor for
-AI coding agents. This repository is a docs-first product baseline with a
-working Checkpoint 1 retrieval smoke path; it is not yet a complete product.
+SkillNudge is a local-first capability intervention advisor for AI agents.
 
-It is being designed around a question that is slightly different from
-“Which Skills should I install?”:
+It helps answer a question that Skill search alone cannot:
 
-> What capability is actually missing at this point in the task, and is any
-> intervention worth adding at all?
-
-SkillNudge may eventually consider:
-
-- Agent Skills
-- Plugins
-- external tools
-- companion resources
-- or no intervention
-
-The current [FROZEN] product boundary is **Advise**: understand the blockage,
-plan the smallest useful intervention, inspect evidence, and explain a bounded
-recommendation. Review, Grow, and Watch are future capabilities.
-
-The long-term research direction is documented separately in the
-[North Star](docs/north-star.md). It is not a claim that the current Week 1
-implementation already provides an eval-driven capability lifecycle.
+> **What capability is actually missing now — and is adding any intervention
+> worth it at all?**
 
 ## Why SkillNudge?
 
-The Agent Skill ecosystem is growing quickly, but discovery is not the whole
-problem:
+### Relevant ≠ Useful
 
-- users often cannot name the capability they need;
-- the same intervention can have different value at different task stages;
-- semantic relevance does not mean that an intervention is useful now;
-- too many instructions can add context load, trigger mistakes, or overconstrain
-  a capable model;
-- a stronger model may already provide what an older Skill used to add;
-- the right intervention may be a Plugin or Tool rather than a Skill;
-- doing nothing can be the best answer.
+Search can tell you what looks related.
 
-The core product thesis is:
+SkillNudge asks a harder question:
 
-> **Skill utility is contextual, not static.**
+> **Will adding this capability actually improve the next trajectory?**
 
-As a concept:
+- A relevant Skill may be unnecessary for a stronger model.
+- The same capability may help at one task stage and hurt at another.
+- The right intervention may be a Plugin, Tool, or resource rather than a Skill.
+- Sometimes no intervention is the best answer.
 
-```text
-Utility = f(
-  intervention,
-  task,
-  task_stage,
-  model,
-  project_context,
-  time
-)
+Read the [product thesis](docs/product-thesis.md) for the deeper framing.
+
+## What It Does
+
+### 01 — Understand
+
+Find the capability gap behind a vague request or a blocked task.
+
+### 02 — Discover
+
+Search for the smallest plausible intervention instead of adding more
+capability by default.
+
+### 03 — Judge
+
+Separate semantic relevance from expected gain, trust, friction, and stage fit.
+
+### 04 — Advise
+
+Return zero to two bounded recommendations, or explicitly recommend nothing.
+
+These are the target V0 capabilities. The current repository already contains
+the planning, local retrieval, evidence hydration, and Candidate Judgement /
+Final Advice runtime surfaces; provider-backed validation of the final stages
+is still in progress.
+
+## Quick Start
+
+### Development Preview
+
+The repository currently exposes a direct Python development workflow, not a
+packaged end-user CLI.
+
+```bash
+git clone https://github.com/kaiykk/skillnudge.git
+cd skillnudge
+PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-This is a design model, not a V0 scoring formula.
-
-## Product Principle
-
-SkillNudge is not intended to maximize installation count or produce a Top-10
-list. Its guiding rule is:
-
-> **Find the smallest intervention that meaningfully improves the next
-> trajectory.**
-
-The intended advice discipline is:
-
-- zero recommendations is valid;
-- ideally one primary recommendation;
-- at most a primary plus a supporting item;
-- companion resources are shown separately;
-- rejected alternatives can be explained when that helps;
-- no recommendation spam.
-
-## Main Loop
-
-```mermaid
-flowchart TD
-    A["User's vague problem"] --> B["What capability is missing?"]
-    B --> C["Is intervention worth it?"]
-    C --> D["Skill / Plugin / Tool / None"]
-    D --> E["Evidence-based judgement"]
-    E --> F["0-2 recommendations"]
-```
-
-The initial intervention model includes Skill, Plugin, Tool, Companion Resource,
-and No intervention. The model remains deliberately open because the best
-answer may not be a Skill.
-
-## V0 Design Baseline
-
-The frozen V0 runtime map is:
-
-```text
-Raw User Request
-        │
-        ▼
-1. Intake / Context
-        │
-        ▼
-2. Capability Framing
-        │
-        ▼
-3. Intervention Planning
-        │
-        ▼
-4. Query Planning
-        │
-        ▼
-5. Candidate Acquisition
-        ├── Local Retrieval
-        └── Conditional Live Discovery
-        │
-        ▼
-6. Evidence Hydration
-        │
-        ▼
-7. Candidate Judgement
-        │
-        ▼
-8. Final Advice
-
-Trace crosses the entire runtime.
-```
-
-The design baseline is documented in:
-
-- [`docs/runtime.md`](docs/runtime.md)
-- [`docs/candidate-acquisition.md`](docs/candidate-acquisition.md)
-- [`docs/retrieval.md`](docs/retrieval.md)
-- [`docs/trace.md`](docs/trace.md)
-
-## Local-First, Lightweight by Default
-
-V0 is designed to run on an ordinary developer laptop:
-
-- no mandatory embedding model;
-- no vector database requirement;
-- no GPU requirement;
-- local SQLite with FTS5 / BM25 as the default retrieval direction;
-- live discovery only when local evidence or coverage is insufficient;
-- full candidate bodies are hydrated only for a small candidate pool.
-
-GitHub is intended primarily for known-candidate source retrieval, provenance,
-and freshness checks. It is not assumed to be a complete index of the Skill
-universe.
-
-## Design Cases
-
-The first three cases are deliberately different:
-
-- **D001 — UI Vocabulary Gap:** the user needs design and prototyping guidance
-  but does not know the professional vocabulary.
-- **D002 — Premature Execution / Thinking Partner:** the best intervention may
-  be a collaboration mode, Plugin, Tool, or model bridge rather than a Skill.
-- **D003 — No Intervention:** a straightforward question may need no additional
-  capability.
-
-See [`docs/golden-cases.md`](docs/golden-cases.md). These cases are design
-probes, not hardcoded answers.
-
-## Current Status
-
-**[CHECKPOINT 4] Candidate Judgement + Final Advice in progress.**
-
-This repository currently contains:
-
-- product and runtime design documents;
-- decision records;
-- golden cases;
-- a SQLite/FTS5/BM25/RRF candidate-acquisition baseline;
-- planning runtime and Checkpoint 3 Evidence Hydration;
-- Checkpoint 4 Candidate Judgement and minimal Final Advice runtime;
-- frozen golden-case fixtures and engineering smoke tests.
-
-Checkpoint 4 is an implementation checkpoint, not a product-quality benchmark.
-It does not claim:
-
-- an embedding or reranking backend;
-- automatic installation;
-- Review, Grow, or Watch;
-- automatic Skill Utility Drift detection;
-- a benchmark result or superiority claim.
-
-Run Checkpoint 1 with a local corpus using:
+To run the current local retrieval smoke path, provide a compatible Skill
+corpus:
 
 ```bash
 PYTHONPATH=src python3 scripts/run_d001.py \
@@ -196,68 +101,141 @@ PYTHONPATH=src python3 scripts/run_d001.py \
   --run-dir runs/d001-checkpoint1
 ```
 
-The run creates reviewable artifacts under `runs/` and does not create a
-recommendation.
+The run writes reviewable artifacts under `runs/`. It is an engineering smoke
+path, not a recommendation-quality benchmark.
+
+Live planning and judgement runs require an explicitly configured
+OpenAI-compatible provider. See
+[`docs/provider-configuration.md`](docs/provider-configuration.md) for the
+local-only configuration path. Never commit or paste provider credentials.
+
+## Example Use Case
+
+> “I want to build a good frontend/UI prototype, but I do not understand
+> design and do not know how to describe what I want.”
+
+At the current implementation level, the D001 flow is:
+
+```text
+Capability gap
+  -> design framing and UI decision support
+Intervention
+  -> Skill
+Discovery
+  -> candidate capabilities
+Evidence
+  -> candidate body + retrieval evidence + explicit provenance gaps
+Judge
+  -> implemented runtime surface; provider-backed validation in progress
+```
+
+No recommendation is fabricated here. D001 is a bounded design probe, not a
+hard-coded answer. See [`docs/golden-cases.md`](docs/golden-cases.md).
+
+## Product Principles
+
+> **The smallest useful intervention wins.**
+
+> **No intervention is a valid outcome.**
+
+> **Evidence before recommendation.**
+
+## North Star
+
+SkillNudge is starting as a capability intervention advisor.
+
+Longer term, the project is organized around three layers:
+
+```text
+Capability Control Plane
+  -> Eval / Utility Layer
+  -> Capability Evolution Loop
+```
+
+The long-term question is not only “What Skill should I use?” It is also:
+
+> **Does this capability still help this model, in this harness, on this task?**
+
+Read the full [North Star](docs/north-star.md). The long-term direction does
+not imply that evaluation or capability evolution is implemented today.
+
+## Current Status
+
+### Working today
+
+- Capability Framing
+- Intervention Planning
+- Query Planning
+- Local SQLite FTS5 / BM25 retrieval
+- Evidence Hydration
+- Observable runtime traces
+- Candidate Judgement and minimal Final Advice runtime code
+
+### In progress
+
+- Provider-backed validation of Candidate Judgement and Final Advice
+- Completion review for the current Week 1 advisor loop
+
+### Not yet
+
+- Packaged production CLI
+- Automatic installation
+- Utility evaluation and Skill Utility Drift detection
+- Capability evolution
+- Review, Grow, and Watch
+
+The repository is an early implementation baseline, not a complete product or
+a product-quality benchmark.
+
+## Docs
+
+Four entry points cover the main project context:
+
+- [North Star](docs/north-star.md)
+- [Architecture & Runtime](docs/architecture.md)
+- [Contracts](docs/contracts/README.md)
+- [Research](docs/research/README.md)
+
+[Browse all documentation](docs/).
 
 ## Roadmap
 
-The intended direction is deliberately staged:
+### Now
 
-1. **V0:** Discovery / Intervention Advisor.
-2. **V0.5:** retrieval quality and corpus freshness.
-3. **V1:** optional semantic or hybrid retrieval.
-4. **Later:** Review, Grow, and Watch.
-5. **Future:** Skill Utility Drift, including simplify, update, replace, and
-   retire decisions.
+Capability intervention:
 
-These are roadmap directions, not completed capabilities.
+```text
+understand -> discover -> judge -> advise
+```
 
-## Design Documents
+### Next
 
-- [`docs/product-thesis.md`](docs/product-thesis.md) — core product thesis and
-  state labels.
-- [`docs/product-evolution.md`](docs/product-evolution.md) — why the product
-  moved beyond Skill Search.
-- [`docs/architecture.md`](docs/architecture.md) — product and V0 system maps.
-- [`docs/capability-map.md`](docs/capability-map.md) — Advise, Review, Grow,
-  and Watch.
-- [`docs/runtime.md`](docs/runtime.md) — V0 runtime map and layer contracts.
-- [`docs/feature-framework.md`](docs/feature-framework.md) — responsibility
-  matrix for planned and future modules.
-- [`docs/candidate-acquisition.md`](docs/candidate-acquisition.md) — local
-  sources, live fallback, normalization, and cache levels.
-- [`docs/data-layer.md`](docs/data-layer.md) — candidate lifecycle and
-  provenance boundaries.
-- [`docs/retrieval.md`](docs/retrieval.md) — lightweight retrieval baseline.
-- [`docs/judge.md`](docs/judge.md) — intervention utility judgement target.
-- [`docs/trace.md`](docs/trace.md) — observable run artifacts without private
-  chain-of-thought.
-- [`docs/golden-cases.md`](docs/golden-cases.md) — D001, D002, and D003.
-- [`docs/skill-utility-drift.md`](docs/skill-utility-drift.md) — future
-  model-aware lifecycle direction.
-- [`docs/north-star.md`](docs/north-star.md) — canonical long-term product and
-  research thesis.
-- [`docs/research/north-star-references.md`](docs/research/north-star-references.md)
-  — verified external bibliography for the North Star.
-- [`docs/research/`](docs/research/) — historical evidence and research
-  boundaries.
-- [`docs/open-questions.md`](docs/open-questions.md) — unresolved design
-  questions that must not be silently frozen.
-- [`docs/roadmap.md`](docs/roadmap.md) — staged scope and utility drift.
-- [`docs/week1.md`](docs/week1.md) — proposed first implementation boundary.
-- [`docs/decisions/`](docs/decisions/) — historical decision records.
+Measure whether interventions actually improve downstream trajectories.
+
+### Later
+
+Detect Skill Utility Drift and evaluate whether to evolve, compress, replace,
+or retire capabilities.
+
+These are directional stages, not completed features.
 
 ## Contributing
 
-The project is in an early design stage. Before proposing implementation,
-please read the design documents and keep these distinctions explicit:
+SkillNudge is an early open-source project. Before opening a change, read the
+current documentation and keep implemented behavior separate from proposed
+behavior.
 
-- design target versus implemented behavior;
-- evidence versus hypothesis;
-- Skill versus Plugin, Tool, Companion Resource, or No intervention;
-- retrieval relevance versus intervention utility.
+Good contributions are narrow, falsifiable, evidence-aware, and compatible
+with the local-first Week 1 boundary.
 
-Small, falsifiable proposals are preferred to broad platform additions.
+For local validation:
+
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py' -v
+python3 -m compileall -q src scripts
+git diff --check
+./scripts/check_publish_gate.sh
+```
 
 ## License
 
