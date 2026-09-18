@@ -73,8 +73,8 @@ SkillNudge 进一步追问：
 返回 0–2 个有边界的建议，也可以明确建议不介入。
 
 这些是 V0 的目标能力。当前仓库已经包含 planning、本地检索、Evidence
-Hydration 以及 Candidate Judgement / Final Advice 的运行时实现；最后阶段的
-provider-backed 验证仍在进行。
+Hydration 以及 Candidate Judgement / Final Advice 的运行时实现；Week 1 最后
+阶段的 provider-backed 验证已经完成。
 
 ## 快速开始
 

@@ -76,8 +76,8 @@ Return zero to two bounded recommendations, or explicitly recommend nothing.
 
 These are the target V0 capabilities. The current repository already contains
 the planning, local retrieval, evidence hydration, and Candidate Judgement /
-Final Advice runtime surfaces; provider-backed validation of the final stages
-is still in progress.
+Final Advice runtime surfaces; the Week 1 provider-backed final-stage
+validation is complete.
 
 ## Quick Start
 
@@ -126,7 +126,7 @@ Discovery
 Evidence
   -> candidate body + retrieval evidence + explicit provenance gaps
 Judge
-  -> implemented runtime surface; provider-backed validation in progress
+  -> implemented runtime surface; Week 1 provider-backed validation complete
 ```
 
 No recommendation is fabricated here. D001 is a bounded design probe, not a
