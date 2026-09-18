@@ -35,7 +35,7 @@ class OpenAICompatibleModel:
 
     api_key: str | None = None
     base_url: str = "https://api.openai.com/v1"
-    model_name: str = "gpt-4o-mini"
+    model_name: str = ""
     timeout_seconds: float = 60.0
     provider_name: str = "openai-compatible"
 
@@ -44,12 +44,12 @@ class OpenAICompatibleModel:
         return cls(
             api_key=os.environ.get("SKILLNUDGE_MODEL_API_KEY") or os.environ.get("OPENAI_API_KEY"),
             base_url=os.environ.get("SKILLNUDGE_MODEL_BASE_URL", "https://api.openai.com/v1"),
-            model_name=os.environ.get("SKILLNUDGE_MODEL", "gpt-4o-mini"),
+            model_name=os.environ.get("SKILLNUDGE_MODEL", ""),
             timeout_seconds=float(os.environ.get("SKILLNUDGE_MODEL_TIMEOUT_SECONDS", "60")),
         )
 
     def generate_structured(self, *, stage: str, prompt: str, prompt_version: str) -> Any:
-        if not self.api_key:
+        if not self.api_key or not self.model_name:
             raise LiveModelProviderUnavailable()
         request_body = {
             "model": self.model_name,

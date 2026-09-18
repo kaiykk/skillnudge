@@ -26,6 +26,32 @@ observable checkpoints rather than implementing the whole runtime in one pass.
 The current implementation task is Checkpoint 2. Candidate Acquisition remains
 out of scope until this planning checkpoint is complete and reviewed.
 
+## Checkpoint 2 Scope
+
+Checkpoint 2 implements only three independently validated planning stages:
+
+```text
+InputEnvelope -> Capability Framing -> Intervention Planning -> Query Planning
+```
+
+Capability Framing may stop for clarification. Intervention Planning may stop
+with `no_intervention` or `clarify`; those early stops skip model-driven Query
+Planning and produce the corresponding validated status. Search planning emits
+bounded, complementary semantic queries and is checked for cross-stage
+consistency before the run completes.
+
+The provider boundary is one minimal OpenAI-compatible structured-output
+adapter. A malformed response receives one repair attempt; a second invalid
+response fails explicitly. The live model name must be supplied through
+`SKILLNUDGE_MODEL`; no durable model default is committed.
+
+Acceptance cases are D001 (Skill primary with Resource companion), D002
+(Integration primary with Skill secondary), and D003 (empty
+`missing_capabilities`, `no_intervention`, no Query Planning model call).
+Clarification-edge behavior is also covered. Candidate Acquisition, Evidence
+Hydration, Candidate Judgement, and Final Advice remain excluded from this
+checkpoint.
+
 ## Checkpoint 1 Scope
 
 ### Corpus

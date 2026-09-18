@@ -7,8 +7,12 @@
       "expected": {
         "capability": "identify a vocabulary and design-decision blockage",
         "intervention_decision": "search",
-        "primary_family": "skill",
-        "query_status": "ready"
+        "targets": [
+          {"family": "skill", "priority": "primary"},
+          {"family": "resource", "priority": "companion"}
+        ],
+        "query_status": "ready",
+        "forbidden_candidate_terms": ["ui-ux-pro-max", "Superpowers"]
       }
     },
     {
@@ -17,9 +21,12 @@
       "expected": {
         "capability": "support deliberation, reframing, and delayed execution",
         "intervention_decision": "search",
-        "primary_family": "integration",
-        "secondary_family": "skill",
-        "query_status": "ready"
+        "targets": [
+          {"family": "integration", "priority": "primary"},
+          {"family": "skill", "priority": "secondary"}
+        ],
+        "query_status": "ready",
+        "forbidden_candidate_terms": ["ui-ux-pro-max", "Superpowers"]
       }
     },
     {
@@ -29,6 +36,7 @@
         "capability": "understand a concrete error without a durable capability gap",
         "missing_capabilities": [],
         "intervention_decision": "no_intervention",
+        "targets": [],
         "query_status": "skipped"
       }
     },

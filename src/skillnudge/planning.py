@@ -14,6 +14,7 @@ from .planning_contracts import (
     validate_capability_framing,
     validate_input_envelope,
     validate_intervention_plan,
+    validate_planning_consistency,
     validate_query_plan,
 )
 from .planning_model import PlanningModel
@@ -187,6 +188,17 @@ class PlanningRuntime:
                     prompt=query_prompt(capability_result, intervention_result),
                     validator=validate_query_plan,
                 )
+        try:
+            validate_planning_consistency(intervention_result, query_result)
+        except ContractValidationError as error:
+            trace.emit(
+                "cross_stage_validation",
+                "Planning Runtime",
+                {"valid": False, "errors": error.errors},
+            )
+            trace.emit("error", "Planning Runtime", _error_details(error))
+            raise
+        trace.emit("cross_stage_validation", "Planning Runtime", {"valid": True})
         _write_json(output_dir / "03_query_plan.json", query_result)
         trace.emit("run_completed", "Planning Runtime", {"candidate_acquisition_invoked": False})
         return PlanningRunResult(

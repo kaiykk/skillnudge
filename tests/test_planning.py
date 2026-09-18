@@ -1,8 +1,10 @@
 import json
+import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,6 +15,7 @@ from skillnudge.planning_contracts import (
     ContractValidationError,
     validate_capability_framing,
     validate_intervention_plan,
+    validate_planning_consistency,
     validate_query_plan,
 )
 from skillnudge.planning_model import DeterministicFakeModel, LiveModelProviderUnavailable, OpenAICompatibleModel
@@ -36,23 +39,23 @@ def _capability(*, missing: list[str], clarification_needed: bool = False) -> di
     }
 
 
-def _search_plan(primary: str, secondary: str | None = None) -> dict:
+def _search_plan(primary: str, secondary: str | None = None, *, secondary_priority: str = "secondary") -> dict:
     targets = [{"family": primary, "priority": "primary", "rationale": "The main blocker is best addressed through this intervention family."}]
     if secondary:
-        targets.append({"family": secondary, "priority": "secondary", "rationale": "A smaller complementary search surface may cover a distinct mechanism."})
+        targets.append({"family": secondary, "priority": secondary_priority, "rationale": "A smaller complementary search surface may cover a distinct mechanism."})
     return {"decision": "search", "targets": targets, "decision_reason": "A bounded search can address the diagnosed capability gap."}
 
 
 def _query_plan(families: list[str]) -> dict:
-    angles = ["capability", "problem", "outcome", "operation", "professional_vocabulary"]
+    angles = ["capability", "problem", "professional vocabulary", "outcome", "stage"]
     return {
         "status": "ready",
         "queries": [
             {
                 "family": family,
-                "angle": angles[index % len(angles)],
-                "semantic_query": f"{family} response to the current capability blocker",
-                "purpose": "Explore a complementary semantic angle for the diagnosed capability.",
+                "angle": ["capability", "problem", "professional_vocabulary", "outcome", "stage"][index % 5],
+                "semantic_query": f"{family} {angles[index % len(angles)]} for the current capability blocker",
+                "purpose": f"Explore the {angles[index % len(angles)]} angle for the diagnosed capability.",
             }
             for index, family in enumerate(families)
         ],
@@ -63,7 +66,7 @@ def _responses_for(case_id: str) -> list[dict]:
     if case_id == "D001":
         return [
             _capability(missing=["design framing", "prototyping guidance", "professional vocabulary"]),
-            _search_plan("skill", "resource"),
+            _search_plan("skill", "resource", secondary_priority="companion"),
             _query_plan(["skill", "skill", "skill", "resource"]),
         ]
     if case_id == "D002":
@@ -112,6 +115,13 @@ class PlanningContractTests(unittest.TestCase):
         too_many["targets"].append({"family": "integration", "priority": "companion", "rationale": "extra"})
         with self.assertRaises(ContractValidationError):
             validate_intervention_plan(too_many)
+        two_primary = _search_plan("skill", "resource")
+        two_primary["targets"][1]["priority"] = "primary"
+        with self.assertRaises(ContractValidationError):
+            validate_intervention_plan(two_primary)
+        duplicate_family = _search_plan("skill", "skill")
+        with self.assertRaises(ContractValidationError):
+            validate_intervention_plan(duplicate_family)
         invalid_stop = {"decision": "no_intervention", "targets": [{"family": "skill", "priority": "primary", "rationale": "x"}], "decision_reason": "x"}
         with self.assertRaises(ContractValidationError):
             validate_intervention_plan(invalid_stop)
@@ -124,6 +134,21 @@ class PlanningContractTests(unittest.TestCase):
             validate_query_plan(too_many)
         with self.assertRaises(ContractValidationError):
             validate_query_plan({"status": "skipped", "queries": [{"family": "skill", "angle": "problem", "semantic_query": "x", "purpose": "x"}]})
+
+    def test_cross_stage_planning_consistency(self):
+        search = _search_plan("skill", "resource", secondary_priority="companion")
+        ready = _query_plan(["skill", "resource"])
+        validate_planning_consistency(search, ready)
+        validate_planning_consistency(search, {"status": "clarify", "queries": []})
+
+        with self.assertRaises(ContractValidationError):
+            validate_planning_consistency(search, {"status": "skipped", "queries": []})
+        with self.assertRaises(ContractValidationError):
+            validate_planning_consistency(search, {"status": "ready", "queries": [_query_plan(["integration"])["queries"][0]]})
+        with self.assertRaises(ContractValidationError):
+            validate_planning_consistency({"decision": "no_intervention", "targets": []}, {"status": "ready", "queries": [_query_plan(["skill"])["queries"][0]]})
+        with self.assertRaises(ContractValidationError):
+            validate_planning_consistency({"decision": "clarify", "targets": []}, {"status": "skipped", "queries": []})
 
 
 class PlanningRuntimeTests(unittest.TestCase):
@@ -142,12 +167,30 @@ class PlanningRuntimeTests(unittest.TestCase):
                 self.assertEqual(result.input_envelope["raw_request"], case["raw_request"])
                 self.assertEqual(result.intervention_plan["decision"], case["expected"]["intervention_decision"])
                 self.assertEqual(result.query_plan["status"], case["expected"]["query_status"])
+                actual_targets = [
+                    {"family": target["family"], "priority": target["priority"]}
+                    for target in result.intervention_plan["targets"]
+                ]
+                self.assertEqual(actual_targets, case["expected"]["targets"])
                 if case_id == "D003":
                     self.assertEqual(result.capability_framing["contract"]["missing_capabilities"], [])
                     self.assertEqual(len(fake.calls), 2)
+                    self.assertNotIn("Query Planning", [call["stage"] for call in fake.calls])
                 else:
-                    self.assertEqual(result.intervention_plan["targets"][0]["family"], case["expected"]["primary_family"])
                     self.assertEqual(len(fake.calls), 3)
+                    queries = result.query_plan["queries"]
+                    self.assertLessEqual(len(queries), 5)
+                    self.assertEqual(len({query["semantic_query"] for query in queries}), len(queries))
+                    planned_families = {target["family"] for target in result.intervention_plan["targets"]}
+                    self.assertTrue({query["family"] for query in queries} <= planned_families)
+                    for forbidden in case["expected"].get("forbidden_candidate_terms", []):
+                        self.assertNotIn(forbidden.lower(), " ".join(query["semantic_query"] for query in queries).lower())
+                    if case_id == "D002":
+                        query_counts = {
+                            family: sum(query["family"] == family for query in queries)
+                            for family in planned_families
+                        }
+                        self.assertGreaterEqual(query_counts["integration"], query_counts["skill"])
                 output_dir = Path(directory) / case_id
                 self.assertTrue((output_dir / "00_input.json").exists())
                 self.assertTrue((output_dir / "01_capability_contract.json").exists())
@@ -191,6 +234,15 @@ class PlanningRuntimeTests(unittest.TestCase):
         model = OpenAICompatibleModel(api_key=None)
         with self.assertRaises(LiveModelProviderUnavailable):
             model.generate_structured(stage="Capability Framing", prompt="{}", prompt_version="test")
+
+    def test_live_provider_requires_explicit_model_configuration(self):
+        with patch.dict(os.environ, {}, clear=True):
+            model = OpenAICompatibleModel.from_environment()
+        self.assertEqual(model.model_name, "")
+        with self.assertRaises(LiveModelProviderUnavailable):
+            OpenAICompatibleModel(api_key="test-key").generate_structured(
+                stage="Capability Framing", prompt="{}", prompt_version="test"
+            )
 
     def test_production_planning_has_no_golden_case_routing(self):
         production = "\n".join(

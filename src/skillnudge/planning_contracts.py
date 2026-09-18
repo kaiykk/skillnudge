@@ -137,7 +137,7 @@ def validate_intervention_plan(value: Any) -> dict[str, Any]:
         targets = []
     if len(targets) > 2:
         errors.append("targets may contain at most 2 items")
-    families: set[str] = set()
+    families: list[str] = []
     primary_count = 0
     for index, target in enumerate(targets):
         target_errors: list[str] = []
@@ -148,16 +148,22 @@ def validate_intervention_plan(value: Any) -> dict[str, Any]:
             _required_string(target_data, "rationale", target_errors)
             _unexpected(target_data, {"family", "priority", "rationale"}, target_errors)
             if isinstance(target_data.get("family"), str):
-                families.add(target_data["family"])
+                families.append(target_data["family"])
             if target_data.get("priority") == "primary":
                 primary_count += 1
         errors.extend(f"targets[{index}].{error}" for error in target_errors)
-    if len(families) > 2:
-        errors.append("targets may contain at most 2 distinct families")
+    if len(families) != len(set(families)):
+        errors.append("target families must be unique")
     if plan.get("decision") in {"no_intervention", "clarify"} and targets:
         errors.append(f"decision={plan.get('decision')} requires targets=[]")
-    if plan.get("decision") == "search" and primary_count < 1:
-        errors.append("decision=search requires at least one primary target")
+    if plan.get("decision") == "search":
+        if primary_count != 1:
+            errors.append("decision=search requires exactly one primary target")
+        if len(targets) == 2:
+            second = targets[1]
+            second_priority = second.get("priority") if isinstance(second, Mapping) else None
+            if second_priority not in {"secondary", "companion"}:
+                errors.append("decision=search requires the second target to be secondary or companion")
     _unexpected(plan, {"decision", "targets", "decision_reason"}, errors)
     if errors:
         raise ContractValidationError("InterventionPlan", errors)
@@ -196,3 +202,45 @@ def validate_query_plan(value: Any) -> dict[str, Any]:
     if errors:
         raise ContractValidationError("QueryPlanResult", errors)
     return dict(result)
+
+
+def validate_planning_consistency(
+    intervention_plan: Any,
+    query_plan: Any,
+) -> None:
+    """Validate the relationship between the intervention and query stages."""
+
+    errors: list[str] = []
+    if not isinstance(intervention_plan, Mapping):
+        errors.append("InterventionPlan must be a JSON object")
+        intervention = {}
+    else:
+        intervention = intervention_plan
+    if not isinstance(query_plan, Mapping):
+        errors.append("QueryPlanResult must be a JSON object")
+        query = {}
+    else:
+        query = query_plan
+
+    target_families = {
+        target.get("family")
+        for target in intervention.get("targets", [])
+        if isinstance(target, Mapping)
+    }
+    for index, item in enumerate(query.get("queries", [])):
+        if isinstance(item, Mapping) and item.get("family") not in target_families:
+            errors.append(
+                f"queries[{index}].family={item.get('family')!r} is not present in InterventionPlan.targets"
+            )
+
+    decision = intervention.get("decision")
+    status = query.get("status")
+    if decision == "no_intervention" and status != "skipped":
+        errors.append("decision=no_intervention requires QueryPlanResult.status=skipped")
+    elif decision == "clarify" and status != "clarify":
+        errors.append("decision=clarify requires QueryPlanResult.status=clarify")
+    elif decision == "search" and status == "skipped":
+        errors.append("decision=search does not allow QueryPlanResult.status=skipped")
+
+    if errors:
+        raise ContractValidationError("PlanningConsistency", errors)
