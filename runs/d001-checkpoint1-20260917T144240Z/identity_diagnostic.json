@@ -1,0 +1,90 @@
+{
+  "schema_version": "checkpoint1.1.identity_diagnostic.v0",
+  "run_id": "d001-checkpoint1-20260917T144240Z",
+  "classification": "CANONICAL_CAPABILITY_NOT_RETRIEVED",
+  "reason": "The pinned canonical body is present in the corpus but ranks 60, 1048, and 128 in the recorded full-rank probes, so it is outside every configured Top-50 acquisition window and absent from fused Top-30. web_10306 and web_20486 are same-name records with materially different singleton bodies and unavailable raw source provenance.",
+  "source": {
+    "corpus_path": "/tmp/skillnudge-corpus-FbL4HV/SR-Agents/data/bench/corpus/corpus.json",
+    "repository": "https://github.com/oneal2000/SR-Agents",
+    "repository_commit": "277fd8d2bbd7d3b81a5cf4ffa6e87e18c7906e4f",
+    "corpus_sha256": "16ee509ae5bea8c2e17167dffecd89100a7d8dfa31256c3742426758c7169b5e",
+    "record_count": 26262,
+    "normalization": "skillnudge.retrieval._body_sha256: (body or '').rstrip('\\n'), UTF-8 SHA-256",
+    "configured_per_query_k": 50,
+    "fused_limit": 30,
+    "retrieval_query_evidence": [
+      {"semantic_query": "ui ux prototyping guidance", "candidate_id": "web_10306", "rank": 29, "raw_bm25_score": -11.444003597868301, "repo": null, "source_url": null, "source": null},
+      {"semantic_query": "ui ux prototyping guidance", "candidate_id": "web_20486", "rank": 33, "raw_bm25_score": -11.241779002996813, "repo": null, "source_url": null, "source": null}
+    ],
+    "canonical_full_rank_probe": [
+      {"semantic_query": "ui ux prototyping guidance", "rank": 60, "within_top_50": false},
+      {"semantic_query": "translate vague visual intent into interface design", "rank": 1048, "within_top_50": false},
+      {"semantic_query": "design system wireframe prototype interaction design", "rank": 128, "within_top_50": false}
+    ]
+  },
+  "canonical": {
+    "raw_corpus_candidate_id": "web_00010",
+    "candidate_id": "nextlevelbuilder/ui-ux-pro-max-skill::ui-ux-pro-max",
+    "name": "ui-ux-pro-max",
+    "description": "UI/UX design intelligence. 50 styles, 21 palettes, 50 font pairings, 20 charts, 9 stacks (React, Next.js, Vue, Svelte, SwiftUI, React Native, Flutter, Tailwind, shadcn/ui). Actions: plan, build, create, design, implement, review, fix, improve, optimize, enhance, refactor, check UI/UX code. Projects: website, landing page, dashboard, admin panel, e-commerce, SaaS, portfolio, blog, mobile app, .html, .tsx, .vue, .svelte. Elements: button, modal, navbar, sidebar, card, table, form, chart. Styles: glassmorphism, claymorphism, minimalism, brutalism, neumorphism, bento grid, dark mode, responsive, skeuomorphism, flat design. Topics: color palette, accessibility, animation, layout, typography, font pairing, spacing, hover, shadow, gradient. Integrations: shadcn/ui MCP for component search and examples.",
+    "repo": "nextlevelbuilder/ui-ux-pro-max-skill",
+    "source_url": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+    "source": "sra-bench-corpus (identity verified against pinned official file)",
+    "license": "MIT",
+    "updated_at": null,
+    "official_commit": "5fe9624cb844266aeae50d8a3f24c403bd456c16",
+    "official_path": ".claude/skills/ui-ux-pro-max/SKILL.md",
+    "body_length": 13520,
+    "raw_body_sha256": "b6627ae64792f475731d3fb0643d4521370c26dbc447fd91675e4f446aa0f3c3",
+    "normalized_body_sha256": "b6627ae64792f475731d3fb0643d4521370c26dbc447fd91675e4f446aa0f3c3",
+    "frontmatter_present": false,
+    "first_meaningful_heading": "# UI/UX Pro Max - Design Intelligence",
+    "headings": ["# UI/UX Pro Max - Design Intelligence", "## When to Apply", "## Rule Categories by Priority", "## Quick Reference", "### 1. Accessibility (CRITICAL)", "### 2. Touch & Interaction (CRITICAL)", "### 3. Performance (HIGH)", "### 4. Layout & Responsive (HIGH)", "### 5. Typography & Color (MEDIUM)", "### 6. Animation (MEDIUM)", "### 7. Style Selection (MEDIUM)", "### 8. Charts & Data (LOW)", "## How to Use", "## Prerequisites", "## How to Use This Skill", "### Step 1: Analyze User Requirements", "### Step 2: Generate Design System (REQUIRED)", "### Step 2b: Persist Design System (Master + Overrides Pattern)", "### Step 3: Supplement with Detailed Searches (as needed)", "### Step 4: Stack Guidelines (Default: html-tailwind)", "## Search Reference", "### Available Domains", "### Available Stacks", "## Example Workflow", "### Step 1: Analyze Requirements", "### Step 2: Generate Design System (REQUIRED)", "### Step 3: Supplement with Detailed Searches (as needed)", "# Get UX guidelines for animation and accessibility", "# Get alternative typography options if needed", "### Step 4: Stack Guidelines", "## Output Formats", "# ASCII box (default) - best for terminal display", "# Markdown - best for documentation", "## Tips for Better Results", "## Common Rules for Professional UI", "### Icons & Visual Elements", "### Interaction & Cursor", "### Light/Dark Mode Contrast", "### Layout & Spacing", "## Pre-Delivery Checklist", "### Visual Quality", "### Interaction", "### Light/Dark Mode", "### Layout", "### Accessibility"],
+    "original_corpus_metadata_keys": ["content", "description", "name", "skill_id"],
+    "original_corpus_provenance": {"repo": null, "source_url": null, "source": null, "license": null, "updated_at": null, "status": "SOURCE_PROVENANCE_UNAVAILABLE"},
+    "sqlite_identity_mapping": {"raw_id_overridden_to": "nextlevelbuilder/ui-ux-pro-max-skill::ui-ux-pro-max", "mapping_basis": "name plus normalized body SHA-256 match to pinned official file", "mapping_is_raw_corpus_provenance": false}
+  },
+  "candidates": [
+    {
+      "candidate_id": "web_10306",
+      "name": "ui-ux-pro-max",
+      "description": "Advanced design intelligence for professional UI/UX. Use for implementing modern design patterns (Glassmorphism, Bento Grid), ensuring accessibility, and generating tailored design systems for web and mobile.",
+      "retrieval": {"semantic_query": "ui ux prototyping guidance", "rank": 29, "raw_bm25_score": -11.444003597868301},
+      "body_length": 1439,
+      "raw_body_sha256": "4b694efef95d109f9a0ad8bd5861cc07e619787322f580075581c69a2c396fbb",
+      "normalized_body_sha256": "4b694efef95d109f9a0ad8bd5861cc07e619787322f580075581c69a2c396fbb",
+      "frontmatter_present": false,
+      "first_meaningful_heading": "# UI/UX Pro Max",
+      "headings": ["# UI/UX Pro Max", "## Capabilities", "### 1. Design System Generation", "### 2. Design Patterns", "### 3. Review & Refactor", "## Rules of Thumb", "## When to Use"],
+      "original_corpus_metadata_keys": ["content", "description", "name", "skill_id"],
+      "original_corpus_provenance": {"repo": null, "source_url": null, "source": null, "license": null, "updated_at": null, "status": "SOURCE_PROVENANCE_UNAVAILABLE"},
+      "sqlite_provenance": {"repo": null, "source_url": null, "source": null, "license": null, "updated_at": null, "status": "SOURCE_PROVENANCE_UNAVAILABLE"}
+    },
+    {
+      "candidate_id": "web_20486",
+      "name": "ui-ux-pro-max",
+      "description": "UI/UX design intelligence. 50 styles, 21 palettes, 50 font pairings, 20 charts, 9 stacks (React, Next.js, Vue, Svelte, SwiftUI, React Native, Flutter, Tailwind, shadcn/ui). Actions: plan, build, create, design, implement, review, fix, improve, optimize, enhance, refactor, check UI/UX code. Projects: website, landing page, dashboard, admin panel, e-commerce, SaaS, portfolio, blog, mobile app, .html, .tsx, .vue, .svelte. Elements: button, modal, navbar, sidebar, card, table, form, chart. Styles: glassmorphism, claymorphism, minimalism, brutalism, neumorphism, bento grid, dark mode, responsive, skeuomorphism, flat design. Topics: color palette, accessibility, animation, layout, typography, font pairing, spacing, hover, shadow, gradient. Integrations: shadcn/ui MCP for component search and examples.",
+      "retrieval": {"semantic_query": "ui ux prototyping guidance", "rank": 33, "raw_bm25_score": -11.241779002996813},
+      "body_length": 2350,
+      "raw_body_sha256": "0f5064639c8fae6d327c2c98c7952839da98f47739d290dd8f103d9a142d043d",
+      "normalized_body_sha256": "0f5064639c8fae6d327c2c98c7952839da98f47739d290dd8f103d9a142d043d",
+      "frontmatter_present": false,
+      "first_meaningful_heading": "# UI/UX Pro Max Skill",
+      "headings": ["# UI/UX Pro Max Skill", "## Overview", "## Available Tools", "### getStyleRecommendations", "### getTypographyRecommendations", "### getChartRecommendations", "### getProductRecommendations", "### getUXGuidelines", "## Usage Rules", "## Data Sources"],
+      "original_corpus_metadata_keys": ["content", "description", "name", "skill_id"],
+      "original_corpus_provenance": {"repo": null, "source_url": null, "source": null, "license": null, "updated_at": null, "status": "SOURCE_PROVENANCE_UNAVAILABLE"},
+      "sqlite_provenance": {"repo": null, "source_url": null, "source": null, "license": null, "updated_at": null, "status": "SOURCE_PROVENANCE_UNAVAILABLE"}
+    }
+  ],
+  "hash_comparison": {
+    "canonical": {"normalized_body_sha256": "b6627ae64792f475731d3fb0643d4521370c26dbc447fd91675e4f446aa0f3c3", "body_length": 13520, "hash_group_members": ["web_00010"], "singleton": true},
+    "web_10306": {"exact_body_equal_to_canonical": false, "normalized_body_equal_to_canonical": false, "sequence_matcher_ratio": 0.006818637609465873, "body_length_delta_vs_canonical": -12081, "headings_in_both": [], "headings_only_in_candidate": ["## Capabilities", "### 1. Design System Generation", "### 2. Design Patterns", "### 3. Review & Refactor", "## Rules of Thumb", "## When to Use"], "headings_only_in_canonical": ["## When to Apply", "## Rule Categories by Priority", "## Quick Reference", "### 1. Accessibility (CRITICAL)", "### 2. Touch & Interaction (CRITICAL)", "### 3. Performance (HIGH)", "### 4. Layout & Responsive (HIGH)", "### 5. Typography & Color (MEDIUM)", "### 6. Animation (MEDIUM)", "### 7. Style Selection (MEDIUM)", "### 8. Charts & Data (LOW)", "## How to Use", "## Prerequisites", "## How to Use This Skill", "### Step 1: Analyze User Requirements", "### Step 2: Generate Design System (REQUIRED)", "### Step 2b: Persist Design System (Master + Overrides Pattern)", "### Step 3: Supplement with Detailed Searches (as needed)", "### Step 4: Stack Guidelines (Default: html-tailwind)", "## Search Reference", "### Available Domains", "### Available Stacks", "## Example Workflow", "### Step 1: Analyze Requirements", "### Step 2: Generate Design System (REQUIRED)", "### Step 3: Supplement with Detailed Searches (as needed)", "# Get UX guidelines for animation and accessibility", "# Get alternative typography options if needed", "### Step 4: Stack Guidelines", "## Output Formats", "# ASCII box (default) - best for terminal display", "# Markdown - best for documentation", "## Tips for Better Results", "## Common Rules for Professional UI", "### Icons & Visual Elements", "### Interaction & Cursor", "### Light/Dark Mode Contrast", "### Layout & Spacing", "## Pre-Delivery Checklist", "### Visual Quality", "### Interaction", "### Light/Dark Mode", "### Layout", "### Accessibility"]},
+    "web_20486": {"exact_body_equal_to_canonical": false, "normalized_body_equal_to_canonical": false, "sequence_matcher_ratio": 0.012980466288594833, "body_length_delta_vs_canonical": -11170, "headings_in_both": [], "headings_only_in_candidate": ["## Overview", "## Available Tools", "### getStyleRecommendations", "### getTypographyRecommendations", "### getChartRecommendations", "### getProductRecommendations", "### getUXGuidelines", "## Usage Rules", "## Data Sources"], "headings_only_in_canonical": ["## When to Apply", "## Rule Categories by Priority", "## Quick Reference", "### 1. Accessibility (CRITICAL)", "### 2. Touch & Interaction (CRITICAL)", "### 3. Performance (HIGH)", "### 4. Layout & Responsive (HIGH)", "### 5. Typography & Color (MEDIUM)", "### 6. Animation (MEDIUM)", "### 7. Style Selection (MEDIUM)", "### 8. Charts & Data (LOW)", "## How to Use", "## Prerequisites", "## How to Use This Skill", "### Step 1: Analyze User Requirements", "### Step 2: Generate Design System (REQUIRED)", "### Step 2b: Persist Design System (Master + Overrides Pattern)", "### Step 3: Supplement with Detailed Searches (as needed)", "### Step 4: Stack Guidelines (Default: html-tailwind)", "## Search Reference", "### Available Domains", "### Available Stacks", "## Example Workflow", "### Step 1: Analyze Requirements", "### Step 2: Generate Design System (REQUIRED)", "### Step 3: Supplement with Detailed Searches (as needed)", "# Get UX guidelines for animation and accessibility", "# Get alternative typography options if needed", "### Step 4: Stack Guidelines", "## Output Formats", "# ASCII box (default) - best for terminal display", "# Markdown - best for documentation", "## Tips for Better Results", "## Common Rules for Professional UI", "### Icons & Visual Elements", "### Interaction & Cursor", "### Light/Dark Mode Contrast", "### Layout & Spacing", "## Pre-Delivery Checklist", "### Visual Quality", "### Interaction", "### Light/Dark Mode", "### Layout", "### Accessibility"]}
+  },
+  "duplicate_groups": [
+    {"normalized_body_sha256": "b6627ae64792f475731d3fb0643d4521370c26dbc447fd91675e4f446aa0f3c3", "members": [{"candidate_id": "web_00010", "name": "ui-ux-pro-max"}], "singleton": true},
+    {"normalized_body_sha256": "4b694efef95d109f9a0ad8bd5861cc07e619787322f580075581c69a2c396fbb", "members": [{"candidate_id": "web_10306", "name": "ui-ux-pro-max"}], "singleton": true},
+    {"normalized_body_sha256": "0f5064639c8fae6d327c2c98c7952839da98f47739d290dd8f103d9a142d043d", "members": [{"candidate_id": "web_20486", "name": "ui-ux-pro-max"}], "singleton": true}
+  ],
+  "same_name_records": {"name": "ui-ux-pro-max", "count": 24, "raw_candidate_ids": ["web_00010", "web_00410", "web_02928", "web_06134", "web_06609", "web_07690", "web_09133", "web_10183", "web_10306", "web_10343", "web_12477", "web_12659", "web_13682", "web_14457", "web_17712", "web_19384", "web_20486", "web_20921", "web_21574", "web_23113", "web_23408", "web_24494", "web_24751", "web_24804"]}
+}
