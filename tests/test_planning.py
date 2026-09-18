@@ -255,7 +255,7 @@ class PlanningRuntimeTests(unittest.TestCase):
             config_path = Path(directory) / "provider.local.env"
             config_path.write_text(
                 "export SKILLNUDGE_MODEL=local-model\n"
-                "SKILLNUDGE_MODEL_API_KEY=local-placeholder\n"
+                "SKILLNUDGE_MODEL_API_KEY=local-value\n"
                 "SKILLNUDGE_MODEL_BASE_URL='https://local.example/v1'\n"
                 "SKILLNUDGE_MODEL_TIMEOUT_SECONDS=12\n",
                 encoding="utf-8",
@@ -264,7 +264,7 @@ class PlanningRuntimeTests(unittest.TestCase):
                 with patch.dict(os.environ, {}, clear=True):
                     local_model = OpenAICompatibleModel.from_environment()
                 self.assertEqual(local_model.model_name, "local-model")
-                self.assertEqual(local_model.api_key, "local-placeholder")
+                self.assertEqual(local_model.api_key, "local-value")
                 self.assertEqual(local_model.base_url, "https://local.example/v1")
                 self.assertEqual(local_model.timeout_seconds, 12.0)
 
