@@ -38,6 +38,14 @@ configuration path is tracked or staged. It also verifies that every existing
 `config/*.local.env` file is ignored. A passing gate is required before every
 push; it does not replace normal tests or review.
 
+This clone is configured with `core.hooksPath=.githooks`, so Git also runs the
+same gate automatically from `.githooks/pre-push` before each `git push`. After
+cloning the repository elsewhere, enable the versioned hook once:
+
+```bash
+git config core.hooksPath .githooks
+```
+
 After the gate passes, run the relevant validation command and inspect:
 
 ```bash
