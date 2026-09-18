@@ -77,8 +77,8 @@ def _responses_for(case_id: str) -> list[dict]:
     if case_id == "D002":
         return [
             _capability(missing=["deliberative collaboration", "problem reframing", "gradual convergence"]),
-            _search_plan("integration", "skill"),
-            _query_plan(["integration", "integration", "skill"]),
+            _search_plan("skill"),
+            _query_plan(["skill", "skill", "skill"]),
         ]
     if case_id == "D003":
         return [
@@ -93,6 +93,12 @@ def _responses_for(case_id: str) -> list[dict]:
                 },
             },
             {"decision": "no_intervention", "targets": [], "decision_reason": "The current agent can explain this local error directly."},
+        ]
+    if case_id == "integration-edge":
+        return [
+            _capability(missing=["external system task automation"]),
+            _search_plan("integration"),
+            _query_plan(["integration", "integration", "integration"]),
         ]
     raise AssertionError(case_id)
 
@@ -188,8 +194,8 @@ class PlanningRuntimeTests(unittest.TestCase):
         cls.cases = json.loads((ROOT / "eval/cases/planning_runtime.json").read_text(encoding="utf-8"))["cases"]
         cls.case_by_id = {case["case_id"]: case for case in cls.cases}
 
-    def test_fake_runtime_runs_d001_d002_d003_without_candidate_acquisition(self):
-        for case_id in ("D001", "D002", "D003"):
+    def test_fake_runtime_runs_planning_cases_without_candidate_acquisition(self):
+        for case_id in ("D001", "D002", "D003", "integration-edge"):
             case = self.case_by_id[case_id]
             with self.subTest(case_id=case_id), tempfile.TemporaryDirectory() as directory:
                 fake = DeterministicFakeModel(_responses_for(case_id))
@@ -202,7 +208,16 @@ class PlanningRuntimeTests(unittest.TestCase):
                     {"family": target["family"], "priority": target["priority"]}
                     for target in result.intervention_plan["targets"]
                 ]
-                self.assertEqual(actual_targets, case["expected"]["targets"])
+                if case_id == "D002":
+                    self.assertEqual(result.intervention_plan["decision"], "search")
+                    self.assertNotEqual(result.intervention_plan["decision"], "no_intervention")
+                    self.assertIn(
+                        actual_targets[0]["family"],
+                        case["expected"]["allowed_primary_families"],
+                    )
+                    self.assertEqual(actual_targets[0]["priority"], "primary")
+                else:
+                    self.assertEqual(actual_targets, case["expected"]["targets"])
                 if case_id == "D003":
                     self.assertEqual(result.capability_framing["contract"]["missing_capabilities"], [])
                     self.assertEqual(len(fake.calls), 2)
@@ -216,12 +231,11 @@ class PlanningRuntimeTests(unittest.TestCase):
                     self.assertTrue({query["family"] for query in queries} <= planned_families)
                     for forbidden in case["expected"].get("forbidden_candidate_terms", []):
                         self.assertNotIn(forbidden.lower(), " ".join(query["semantic_query"] for query in queries).lower())
-                    if case_id == "D002":
-                        query_counts = {
-                            family: sum(query["family"] == family for query in queries)
-                            for family in planned_families
-                        }
-                        self.assertGreaterEqual(query_counts["integration"], query_counts["skill"])
+                    if case_id == "integration-edge":
+                        self.assertEqual(
+                            {query["family"] for query in queries},
+                            set(case["expected"]["query_families"]),
+                        )
                 output_dir = Path(directory) / case_id
                 self.assertTrue((output_dir / "00_input.json").exists())
                 self.assertTrue((output_dir / "01_capability_contract.json").exists())

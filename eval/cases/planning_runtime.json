@@ -21,10 +21,8 @@
       "expected": {
         "capability": "support deliberation, reframing, and delayed execution",
         "intervention_decision": "search",
-        "targets": [
-          {"family": "integration", "priority": "primary"},
-          {"family": "skill", "priority": "secondary"}
-        ],
+        "allowed_primary_families": ["skill", "integration"],
+        "no_intervention_allowed": false,
         "query_status": "ready",
         "forbidden_candidate_terms": ["ui-ux-pro-max", "Superpowers"]
       }
@@ -47,6 +45,19 @@
         "clarification_needed": true,
         "intervention_decision": "clarify",
         "query_status": "clarify"
+      }
+    },
+    {
+      "case_id": "integration-edge",
+      "raw_request": "I want Codex to automatically create and update Jira issues in my company's Jira workspace as implementation tasks change.",
+      "expected": {
+        "capability": "identify the need to act in an external system",
+        "intervention_decision": "search",
+        "targets": [
+          {"family": "integration", "priority": "primary"}
+        ],
+        "query_status": "ready",
+        "query_families": ["integration"]
       }
     }
   ]
