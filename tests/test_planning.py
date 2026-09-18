@@ -23,6 +23,7 @@ from skillnudge.planning_model import (
     LiveModelProviderUnavailable,
     OpenAICompatibleModel,
 )
+from skillnudge.prompts import PROMPT_VERSIONS, capability_prompt, intervention_prompt
 
 
 def _capability(*, missing: list[str], clarification_needed: bool = False) -> dict:
@@ -153,6 +154,32 @@ class PlanningContractTests(unittest.TestCase):
             validate_planning_consistency({"decision": "no_intervention", "targets": []}, {"status": "ready", "queries": [_query_plan(["skill"])["queries"][0]]})
         with self.assertRaises(ContractValidationError):
             validate_planning_consistency({"decision": "clarify", "targets": []}, {"status": "skipped", "queries": []})
+
+
+class PlanningPromptBoundaryTests(unittest.TestCase):
+    def test_prompt_versions_only_bump_changed_stages(self):
+        self.assertEqual(PROMPT_VERSIONS["capability"], "planning.capability.v1")
+        self.assertEqual(PROMPT_VERSIONS["intervention"], "planning.intervention.v1")
+        self.assertEqual(PROMPT_VERSIONS["query"], "planning.query.v0")
+
+    def test_capability_prompt_defines_clarification_and_agnostic_boundaries(self):
+        prompt = capability_prompt({"raw_request": "ambiguous request"})
+        lowered = prompt.lower()
+        self.assertIn("prevents a reliable diagnosis", lowered)
+        self.assertIn("change the", lowered)
+        self.assertIn("intervention family", lowered)
+        self.assertIn("downstream task execution or candidate selection", lowered)
+        self.assertIn("capability framing must remain intervention-agnostic", lowered)
+        self.assertIn("not_needed", lowered)
+        self.assertNotIn("ui-ux-pro-max", lowered)
+        self.assertNotIn("superpowers", lowered)
+
+    def test_intervention_prompt_distinguishes_one_off_from_reusable_behavior(self):
+        prompt = intervention_prompt({"contract": {"blocker": "x"}}).lower()
+        self.assertIn("local or one-off task", prompt)
+        self.assertIn("reusable behavior change", prompt)
+        self.assertIn("persistent workflow behavior", prompt)
+        self.assertIn("interaction/runtime change", prompt)
 
 
 class PlanningRuntimeTests(unittest.TestCase):

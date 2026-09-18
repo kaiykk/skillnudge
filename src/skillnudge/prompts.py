@@ -7,8 +7,8 @@ from typing import Any, Mapping
 
 
 PROMPT_VERSIONS = {
-    "capability": "planning.capability.v0",
-    "intervention": "planning.intervention.v0",
+    "capability": "planning.capability.v1",
+    "intervention": "planning.intervention.v1",
     "query": "planning.query.v0",
 }
 
@@ -20,12 +20,27 @@ def _json(value: Mapping[str, Any]) -> str:
 def capability_prompt(envelope: Mapping[str, Any]) -> str:
     return f"""You are the Capability Framing stage of a planning runtime.
 
-Understand the user's current blockage before deciding whether any intervention
-is useful. Diagnose the blockage, not merely the topic. Capabilities must
-describe observable behavioral change. Do not prescribe a Skill, plugin, tool,
-MCP, bridge, product, or candidate. Do not invent a capability gap: an empty
-missing_capabilities list is valid when the current request has no durable
-external capability gap.
+Understand the user's current blockage before any later stage decides whether
+an intervention is useful. Diagnose the blockage, not merely the topic.
+Capabilities must describe observable behavioral change.
+
+Capability Framing must remain intervention-agnostic. Do not judge whether an
+intervention is needed, which intervention family is appropriate, or whether a
+Skill, Integration, Resource, Tool, Plugin, MCP, or other external mechanism is
+needed. Do not prescribe a Skill, plugin, tool, MCP, bridge, product, or
+candidate.
+
+The fields constraints, not_needed, and uncertainties must describe task-level
+or capability-level facts. Define not_needed as adjacent capabilities,
+behaviors, or scope that are unnecessary for the user's current goal. It may
+mention things such as a persistent debugging methodology, implementation
+planning at this stage, color-only advice, or code generation before the
+problem is framed. It must not say that a Skill, plugin, integration, tool, or
+external intervention is unnecessary.
+
+Do not invent a capability gap. missing_capabilities may be [] when the
+request does not reveal a reusable behavioral capability gap, such as a local
+one-off information or explanation need.
 
 Return only one JSON object matching this shape. Do not add fields, markdown, or
 explanation outside the object:
@@ -46,9 +61,19 @@ explanation outside the object:
   "clarification_question": "string or null"
 }}
 
-If clarification is materially needed before choosing an intervention family,
-set clarification_needed to true and provide one concise question. Otherwise
-set clarification_needed to false and clarification_question to null.
+Set clarification_needed to true only when at least one of these is true:
+
+1. Missing information prevents a reliable diagnosis of the user's blocker or
+   missing capability.
+2. Materially different plausible interpretations would change the
+   intervention family that should be considered.
+
+Clarification is not required merely because more information would improve
+downstream task execution or candidate selection. If the capability gap is
+already clear, record the missing information in uncertainties, set
+clarification_needed to false, and let later stages decide the intervention.
+When clarification is required, provide one concise question. Otherwise set
+clarification_needed to false and clarification_question to null.
 
 InputEnvelope:
 {_json(envelope)}
@@ -62,13 +87,20 @@ Decide whether the framed blockage warrants searching and, only at the family
 level, where to search. Do not select a concrete candidate or product. Do not
 name a Skill, plugin, tool, MCP, bridge, repository, or marketplace entry.
 Use at most two distinct families and do not search multiple families merely to
-increase recall. Prefer no_intervention when the current agent can answer a
-local one-off information request directly. A Skill represents instructions,
-procedures, methods, or domain guidance. An integration represents external
-systems, runtime behavior, persistent tool access, or an interaction surface.
-Plugin, Tool, MCP, and Bridge are all integration at this stage. A resource is
-reference, example, catalog, documentation, or inspiration and is normally a
-companion.
+increase recall.
+
+Use no_intervention when the user's current need is a local or one-off task
+that the current agent can directly satisfy without adding reusable capability.
+Do not select no_intervention merely because the base agent is theoretically
+capable of the behavior when the user is asking for a reusable behavior change,
+persistent workflow behavior, recurring collaboration behavior, or an
+interaction/runtime change.
+
+A Skill represents instructions, procedures, methods, or domain guidance. An
+integration represents external systems, runtime behavior, persistent tool
+access, or an interaction surface. Plugin, Tool, MCP, and Bridge are all
+integration at this stage. A resource is reference, example, catalog,
+documentation, or inspiration and is normally a companion.
 
 Return only one JSON object matching this shape:
 
