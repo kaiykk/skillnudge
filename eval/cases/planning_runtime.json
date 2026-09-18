@@ -1,0 +1,45 @@
+{
+  "schema_version": "checkpoint2.planning_cases.v0",
+  "cases": [
+    {
+      "case_id": "D001",
+      "raw_request": "I want to build a good frontend/UI prototype, but I do not understand design and do not know how to describe what I want.",
+      "expected": {
+        "capability": "identify a vocabulary and design-decision blockage",
+        "intervention_decision": "search",
+        "primary_family": "skill",
+        "query_status": "ready"
+      }
+    },
+    {
+      "case_id": "D002",
+      "raw_request": "Codex behaves too much like an executor. When I bring an ambiguous concept, it quickly turns it into a plan and starts coding. I want it to discuss, diverge, challenge assumptions, and gradually converge before implementation.",
+      "expected": {
+        "capability": "support deliberation, reframing, and delayed execution",
+        "intervention_decision": "search",
+        "primary_family": "integration",
+        "secondary_family": "skill",
+        "query_status": "ready"
+      }
+    },
+    {
+      "case_id": "D003",
+      "raw_request": "What does Python KeyError: 'user_id' mean?",
+      "expected": {
+        "capability": "understand a concrete error without a durable capability gap",
+        "missing_capabilities": [],
+        "intervention_decision": "no_intervention",
+        "query_status": "skipped"
+      }
+    },
+    {
+      "case_id": "clarification-edge",
+      "raw_request": "I want to add security capability to Codex.",
+      "expected": {
+        "clarification_needed": true,
+        "intervention_decision": "clarify",
+        "query_status": "clarify"
+      }
+    }
+  ]
+}

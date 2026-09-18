@@ -16,14 +16,15 @@ observable checkpoints rather than implementing the whole runtime in one pass.
 
 ## Checkpoints
 
-1. Skill Corpus -> Local SQLite -> FTS5/BM25 -> D001 raw retrieval -> Trace
-2. CapabilityContract + InterventionPlan + QueryPlan runtime
+1. [CLOSED] Skill Corpus -> Local SQLite -> FTS5/BM25 -> D001 raw retrieval -> Trace
+1.1 [CLOSED] D001 candidate identity diagnostic
+2. [IN PROGRESS] CapabilityContract + InterventionPlan + QueryPlan runtime
 3. Candidate Acquisition + Evidence Hydration
 4. Judge + Final Advice
 5. D001 / D002 / D003 regression runs
 
-The current implementation task is Checkpoint 1 only. After it completes, stop
-and inspect the review evidence before starting Checkpoint 2.
+The current implementation task is Checkpoint 2. Candidate Acquisition remains
+out of scope until this planning checkpoint is complete and reviewed.
 
 ## Checkpoint 1 Scope
 
