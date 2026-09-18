@@ -7,6 +7,7 @@ import os
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Mapping, Protocol
 
 
@@ -29,6 +30,39 @@ class PlanningModel(Protocol):
         """Return a JSON object or JSON text for one planning stage."""
 
 
+LOCAL_PROVIDER_ENV_PATH = Path(__file__).resolve().parents[2] / "config" / "provider.local.env"
+_LOCAL_PROVIDER_KEYS = {
+    "SKILLNUDGE_MODEL",
+    "SKILLNUDGE_MODEL_API_KEY",
+    "SKILLNUDGE_MODEL_BASE_URL",
+    "SKILLNUDGE_MODEL_TIMEOUT_SECONDS",
+}
+
+
+def _read_local_provider_env(path: Path | None = None) -> dict[str, str]:
+    """Read the ignored local provider file without adding a dotenv dependency."""
+
+    path = path or LOCAL_PROVIDER_ENV_PATH
+    if not path.is_file():
+        return {}
+    values: dict[str, str] = {}
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[7:].lstrip()
+        if "=" not in line:
+            continue
+        key, value = (part.strip() for part in line.split("=", 1))
+        if key not in _LOCAL_PROVIDER_KEYS:
+            continue
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        values[key] = value
+    return values
+
+
 @dataclass(frozen=True)
 class OpenAICompatibleModel:
     """A minimal Chat Completions adapter using only the Python standard library."""
@@ -41,11 +75,16 @@ class OpenAICompatibleModel:
 
     @classmethod
     def from_environment(cls) -> "OpenAICompatibleModel":
+        local_env = _read_local_provider_env()
+
+        def setting(name: str, default: str = "") -> str:
+            return os.environ.get(name) or local_env.get(name, default)
+
         return cls(
-            api_key=os.environ.get("SKILLNUDGE_MODEL_API_KEY") or os.environ.get("OPENAI_API_KEY"),
-            base_url=os.environ.get("SKILLNUDGE_MODEL_BASE_URL", "https://api.openai.com/v1"),
-            model_name=os.environ.get("SKILLNUDGE_MODEL", ""),
-            timeout_seconds=float(os.environ.get("SKILLNUDGE_MODEL_TIMEOUT_SECONDS", "60")),
+            api_key=setting("SKILLNUDGE_MODEL_API_KEY") or os.environ.get("OPENAI_API_KEY"),
+            base_url=setting("SKILLNUDGE_MODEL_BASE_URL", "https://api.openai.com/v1"),
+            model_name=setting("SKILLNUDGE_MODEL"),
+            timeout_seconds=float(setting("SKILLNUDGE_MODEL_TIMEOUT_SECONDS", "60")),
         )
 
     def generate_structured(self, *, stage: str, prompt: str, prompt_version: str) -> Any:

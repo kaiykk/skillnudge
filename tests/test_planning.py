@@ -18,7 +18,11 @@ from skillnudge.planning_contracts import (
     validate_planning_consistency,
     validate_query_plan,
 )
-from skillnudge.planning_model import DeterministicFakeModel, LiveModelProviderUnavailable, OpenAICompatibleModel
+from skillnudge.planning_model import (
+    DeterministicFakeModel,
+    LiveModelProviderUnavailable,
+    OpenAICompatibleModel,
+)
 
 
 def _capability(*, missing: list[str], clarification_needed: bool = False) -> dict:
@@ -243,6 +247,30 @@ class PlanningRuntimeTests(unittest.TestCase):
             OpenAICompatibleModel(api_key="test-key").generate_structured(
                 stage="Capability Framing", prompt="{}", prompt_version="test"
             )
+
+    def test_live_provider_reads_local_configuration_without_overriding_environment(self):
+        from skillnudge import planning_model
+
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "provider.local.env"
+            config_path.write_text(
+                "export SKILLNUDGE_MODEL=local-model\n"
+                "SKILLNUDGE_MODEL_API_KEY=local-placeholder\n"
+                "SKILLNUDGE_MODEL_BASE_URL='https://local.example/v1'\n"
+                "SKILLNUDGE_MODEL_TIMEOUT_SECONDS=12\n",
+                encoding="utf-8",
+            )
+            with patch.object(planning_model, "LOCAL_PROVIDER_ENV_PATH", config_path):
+                with patch.dict(os.environ, {}, clear=True):
+                    local_model = OpenAICompatibleModel.from_environment()
+                self.assertEqual(local_model.model_name, "local-model")
+                self.assertEqual(local_model.api_key, "local-placeholder")
+                self.assertEqual(local_model.base_url, "https://local.example/v1")
+                self.assertEqual(local_model.timeout_seconds, 12.0)
+
+                with patch.dict(os.environ, {"SKILLNUDGE_MODEL": "env-model"}, clear=True):
+                    env_model = OpenAICompatibleModel.from_environment()
+                self.assertEqual(env_model.model_name, "env-model")
 
     def test_production_planning_has_no_golden_case_routing(self):
         production = "\n".join(
