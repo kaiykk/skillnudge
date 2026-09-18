@@ -1,8 +1,12 @@
 {
   "schema_version": "checkpoint1.1.identity_diagnostic.v0",
   "run_id": "d001-checkpoint1-20260917T144240Z",
-  "classification": "CANONICAL_CAPABILITY_NOT_RETRIEVED",
-  "reason": "The pinned canonical body is present in the corpus but ranks 60, 1048, and 128 in the recorded full-rank probes, so it is outside every configured Top-50 acquisition window and absent from fused Top-30. web_10306 and web_20486 are same-name records with materially different singleton bodies and unavailable raw source provenance.",
+  "classification": "CANONICAL_IDENTITY_NOT_RETRIEVED; CAPABILITY_FAMILY_RETRIEVED; PROVENANCE_UNRESOLVED",
+  "canonical_identity": "not_retrieved",
+  "capability_family": "retrieved",
+  "source_lineage": "unresolved",
+  "reason": "The pinned canonical body is present in the corpus but ranks 60, 1048, and 128 in the recorded full-rank probes, so its canonical identity is outside every configured Top-50 acquisition window and absent from fused Top-30. web_20486 has exactly the same description as canonical and materially overlapping UI/UX recommendation capabilities, supporting capability-family similarity. Its divergent body hash and unavailable source provenance prevent a canonical identity or source-lineage claim.",
+  "implementation_observation": "Identity, provenance, and capability similarity are separate signals. Future Evidence Hydration or Judge work may need to preserve this distinction; this amendment designs no new architecture.",
   "source": {
     "corpus_path": "/tmp/skillnudge-corpus-FbL4HV/SR-Agents/data/bench/corpus/corpus.json",
     "repository": "https://github.com/oneal2000/SR-Agents",

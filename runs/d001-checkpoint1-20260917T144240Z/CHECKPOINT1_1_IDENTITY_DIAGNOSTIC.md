@@ -170,20 +170,31 @@ same-name frequency does not provide identity evidence here.
 
 ## 5. Classification
 
-`CANONICAL_CAPABILITY_NOT_RETRIEVED`
+canonical_identity: `not_retrieved`
+
+capability_family: `retrieved`
+
+source_lineage: `unresolved`
+
+Preferred summary:
+
+`CANONICAL_IDENTITY_NOT_RETRIEVED; CAPABILITY_FAMILY_RETRIEVED; PROVENANCE_UNRESOLVED`
 
 The canonical body is present in the corpus and identity-verified by the pinned
-official hash, but it was not retrieved into the configured Top-50 window or
-the fused Top-30. The two Top-50 same-name records are distinct singleton
-bodies, have no raw source provenance, share no Markdown headings with the
-canonical body, and are not normalized-body matches. They may be topical or
-related records, but this diagnostic does not have evidence to identify either
-one as the canonical repository skill.
+official hash, but its canonical identity was not retrieved into the configured
+Top-50 window or the fused Top-30. The capability family was retrieved: in
+particular, `web_20486` has exactly the same description as canonical and
+materially overlapping UI/UX recommendation capabilities. That evidence
+supports capability-family similarity, not canonical source identity.
+
+The body hash and structure of `web_20486` diverge from canonical, and its raw
+source provenance is unavailable. These facts leave source lineage unresolved.
+This diagnostic does not claim that `web_20486` is a verified fork or mirror.
 
 ## 6. Checkpoint 2 Interpretation
 
-Checkpoint 2 should treat this as a retrieval-window and identity-resolution
-observation: a same-name result is not a verified canonical candidate, and the
-canonical capability was not acquired under the configured window. This result
-does not, by itself, justify query changes, embeddings, rerankers, deduplication
-rules, or an architectural redesign.
+Checkpoint 2 should preserve identity, provenance, and capability similarity as
+separate signals. Future Evidence Hydration or Judge work may need to preserve
+this distinction, but this amendment designs no new architecture and does not
+justify query changes, embeddings, rerankers, deduplication rules, or runtime
+changes.
