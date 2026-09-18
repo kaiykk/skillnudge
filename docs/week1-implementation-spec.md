@@ -21,8 +21,8 @@ observable checkpoints rather than implementing the whole runtime in one pass.
 2. [CLOSED FOR WEEK 1 WITH DEFERRED VALIDATION] CapabilityContract +
    InterventionPlan + QueryPlan runtime
 3. [COMPLETE] Candidate Acquisition + Evidence Hydration
-4. [IN PROGRESS] Candidate Judgement + Final Advice
-5. D001 / D002 / D003 regression runs
+4. [COMPLETE] Candidate Judgement + Final Advice
+5. NEXT: D001 / D002 / D003 regression runs
 
 Checkpoint 2 is closed for Week 1 with one explicitly deferred validation:
 live Integration-primary semantic evidence. The only live Integration attempt
@@ -138,6 +138,13 @@ Checkpoint 4 does not rerun Planning or Retrieval and does not add source
 discovery, entity resolution, installation, embeddings, reranking, or
 integration marketplace support. Candidate Judge and Final Advice are the final
 Week 1 runtime stages; Checkpoint 5 remains regression validation.
+
+The finalization patch also makes Checkpoint 4 judgement progress durable:
+`06_judgements.json` is atomically updated after each successful candidate,
+records `stage_status`, and stores an EvidencePack body fingerprint for bounded
+resume. A later run skips only candidates whose `candidate_id` and current
+`content.body_sha256` still match. D001 completed its single post-patch live
+continuation with all 10 judgements and Final Advice.
 
 ## Checkpoint 1 Scope
 

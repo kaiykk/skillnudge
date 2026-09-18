@@ -10,12 +10,15 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from skillnudge.candidate_runtime import _provenance
 from skillnudge.judge import (
+    EVIDENCE_REFS,
     JudgeRuntime,
+    JudgeStageError,
     JudgeValidationError,
+    evidence_ref_resolves,
     validate_candidate_judgement,
     validate_final_advice_against_judgements,
 )
-from skillnudge.planning_model import DeterministicFakeModel
+from skillnudge.planning_model import DeterministicFakeModel, ModelProviderError
 
 
 def _judgement(
@@ -48,7 +51,7 @@ def _judgement(
         },
         "matched_capabilities": ["address the current blocker"],
         "gaps_or_mismatches": [],
-        "evidence": ["candidate.body", "identity.provenance_status"],
+        "evidence": ["content.body", "provenance_status"],
         "disposition": disposition,
         "reason": f"{name} was assessed against the current capability gap.",
     }
@@ -154,6 +157,15 @@ def _write_run(
 
 
 class Checkpoint4ContractTests(unittest.TestCase):
+    def test_every_allowed_evidence_ref_resolves_against_evidence_pack(self):
+        pack = _pack("candidate", "Canonical Skill")
+        self.assertTrue(EVIDENCE_REFS)
+        for reference in EVIDENCE_REFS:
+            with self.subTest(reference=reference):
+                self.assertTrue(evidence_ref_resolves(pack, reference))
+        self.assertFalse(evidence_ref_resolves(pack, "candidate.body"))
+        self.assertFalse(evidence_ref_resolves(pack, "identity.provenance_status"))
+
     def test_provenance_completeness_is_not_verification(self):
         self.assertEqual(_provenance({})[0], "unknown")
         self.assertEqual(
@@ -230,6 +242,47 @@ class Checkpoint4ContractTests(unittest.TestCase):
         self.assertEqual(result["primary"]["candidate_id"], "primary")
         self.assertEqual(result["supporting"]["candidate_id"], "supporting")
         self.assertEqual(result["companion"]["candidate_id"], "companion")
+
+    def test_final_advice_uses_canonical_evidence_pack_names(self):
+        judgements = [
+            _judgement("c1", name="Canonical"),
+            _judgement("c2", name="Canonical"),
+        ]
+        advice = {
+            "status": "recommendation",
+            "primary": {"candidate_id": "c1", "name": "Model Alias", "reason": "one"},
+            "supporting": {
+                "candidate_id": "c2",
+                "name": "Another Model Alias",
+                "reason": "two",
+            },
+            "companion": None,
+            "deferred": [],
+            "uncertainties": [],
+        }
+        with self.assertRaises(JudgeValidationError):
+            validate_final_advice_against_judgements(
+                advice,
+                judgements,
+                {"c1": "Canonical", "c2": "Canonical"},
+            )
+
+    def test_final_advice_fills_missing_name_from_evidence_pack(self):
+        judgements = [_judgement("c1", name="Canonical")]
+        advice = {
+            "status": "recommendation",
+            "primary": {"candidate_id": "c1", "reason": "one"},
+            "supporting": None,
+            "companion": None,
+            "deferred": [],
+            "uncertainties": [],
+        }
+        result = validate_final_advice_against_judgements(
+            advice,
+            judgements,
+            {"c1": "Canonical"},
+        )
+        self.assertEqual(result["primary"]["name"], "Canonical")
 
 
 class Checkpoint4RuntimeTests(unittest.TestCase):
@@ -328,6 +381,133 @@ class Checkpoint4RuntimeTests(unittest.TestCase):
                 "planned Integration candidate surface was not evaluated",
                 result.final_advice["uncertainties"][0],
             )
+
+    def test_unrelated_acquisition_warning_does_not_create_integration_uncertainty(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run_dir = _write_run(
+                Path(directory),
+                packs=[_pack("skill-1", "Skill")],
+                warnings=[
+                    {
+                        "code": "metadata_unavailable",
+                        "family": "skill",
+                        "message": "Metadata was unavailable.",
+                    }
+                ],
+            )
+            fake = DeterministicFakeModel(
+                [
+                    _judgement("skill-1", name="Skill"),
+                    {
+                        "status": "recommendation",
+                        "primary": {"candidate_id": "skill-1", "reason": "one"},
+                        "supporting": None,
+                        "companion": None,
+                        "deferred": [],
+                        "uncertainties": [],
+                    },
+                ]
+            )
+            result = JudgeRuntime(fake).run(run_dir)
+            self.assertNotIn(
+                "planned Integration candidate surface was not evaluated",
+                result.final_advice["uncertainties"],
+            )
+
+    def test_judgement_artifact_persists_after_each_successful_candidate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run_dir = _write_run(
+                Path(directory),
+                packs=[
+                    _pack("c1", "One", fused_rank=1),
+                    _pack("c2", "Two", fused_rank=2),
+                    _pack("c3", "Three", fused_rank=3),
+                ],
+            )
+            fake = DeterministicFakeModel(
+                [
+                    _judgement("c1", name="One"),
+                    _judgement("c2", name="Two"),
+                ]
+            )
+            with self.assertRaises(ModelProviderError):
+                JudgeRuntime(fake).run(run_dir)
+            artifact = json.loads((run_dir / "06_judgements.json").read_text())
+            self.assertEqual(artifact["stage_status"], "in_progress")
+            self.assertEqual(artifact["expected_candidate_count"], 3)
+            self.assertEqual(artifact["judged_candidate_count"], 2)
+            self.assertEqual(
+                [item["candidate_id"] for item in artifact["judgements"]],
+                ["c1", "c2"],
+            )
+            self.assertEqual(set(artifact["input_fingerprints"]), {"c1", "c2"})
+
+    def test_provider_failure_after_n_candidates_preserves_full_judgements(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run_dir = _write_run(
+                Path(directory),
+                packs=[_pack("c1", "One"), _pack("c2", "Two")],
+            )
+            fake = DeterministicFakeModel([_judgement("c1", name="One")])
+            with self.assertRaises(ModelProviderError):
+                JudgeRuntime(fake).run(run_dir)
+            artifact = json.loads((run_dir / "06_judgements.json").read_text())
+            self.assertEqual(artifact["judgements"][0]["assessment"]["capability_fit"], "strong")
+            self.assertEqual(artifact["judgements"][0]["candidate_id"], "c1")
+
+    def test_resume_skips_previously_completed_valid_candidates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run_dir = _write_run(
+                Path(directory),
+                packs=[_pack("c1", "One"), _pack("c2", "Two"), _pack("c3", "Three")],
+            )
+            first = DeterministicFakeModel(
+                [_judgement("c1", name="One"), _judgement("c2", name="Two")]
+            )
+            with self.assertRaises(ModelProviderError):
+                JudgeRuntime(first).run(run_dir)
+
+            second = DeterministicFakeModel(
+                [
+                    _judgement("c3", name="Three"),
+                    {
+                        "status": "recommendation",
+                        "primary": {"candidate_id": "c3", "reason": "three"},
+                        "supporting": None,
+                        "companion": None,
+                        "deferred": [],
+                        "uncertainties": [],
+                    },
+                ]
+            )
+            result = JudgeRuntime(second).run(run_dir)
+            self.assertEqual(result.judge_call_count, 3)
+            self.assertEqual(
+                [call["stage"] for call in second.calls],
+                ["Candidate Judgement", "Final Advice"],
+            )
+            artifact = json.loads((run_dir / "06_judgements.json").read_text())
+            self.assertEqual(artifact["stage_status"], "complete")
+            self.assertEqual(artifact["judged_candidate_count"], 3)
+
+    def test_resume_rejects_stale_judgement_when_body_hash_changes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run_dir = _write_run(
+                Path(directory),
+                packs=[_pack("c1", "One"), _pack("c2", "Two")],
+            )
+            first = DeterministicFakeModel([_judgement("c1", name="One")])
+            with self.assertRaises(ModelProviderError):
+                JudgeRuntime(first).run(run_dir)
+            evidence_path = run_dir / "05_evidence_packs.json"
+            evidence = json.loads(evidence_path.read_text())
+            evidence["packs"][0]["content"]["body_sha256"] = "changed"
+            evidence_path.write_text(json.dumps(evidence), encoding="utf-8")
+
+            second = DeterministicFakeModel([])
+            with self.assertRaisesRegex(JudgeStageError, "body_sha256 changed"):
+                JudgeRuntime(second).run(run_dir)
+            self.assertEqual(second.calls, [])
 
     def test_d003_writes_no_intervention_without_judge_calls(self):
         with tempfile.TemporaryDirectory() as directory:

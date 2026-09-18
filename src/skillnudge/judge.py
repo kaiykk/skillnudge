@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import os
+import tempfile
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -28,11 +31,11 @@ FINAL_ADVICE_STATUSES = frozenset(
 )
 EVIDENCE_REFS = frozenset(
     {
-        "candidate.description",
-        "candidate.body",
+        "content.description",
+        "content.body",
         "retrieval.query_hits",
-        "identity.provenance_status",
-        "identity.evidence_gaps",
+        "provenance_status",
+        "evidence_gaps",
         "identity.repo",
         "identity.source_url",
         "identity.license",
@@ -57,6 +60,60 @@ class JudgeValidationError(ValueError):
 
 class JudgeStageError(RuntimeError):
     """Raised when a structured Judge or Advice response remains invalid."""
+
+
+def evidence_ref_resolves(evidence_pack: Mapping[str, Any], reference: str) -> bool:
+    """Return whether a stable evidence reference names a real pack path."""
+
+    current: Any = evidence_pack
+    for part in reference.split("."):
+        if not isinstance(current, Mapping) or part not in current:
+            return False
+        current = current[part]
+    return True
+
+
+def _body_fingerprint(evidence_pack: Mapping[str, Any]) -> str:
+    content = evidence_pack.get("content")
+    if not isinstance(content, Mapping):
+        raise JudgeStageError("EvidencePack is missing content for input fingerprint")
+    stored = content.get("body_sha256")
+    if isinstance(stored, str) and stored:
+        return stored
+    body = content.get("body")
+    if not isinstance(body, str):
+        raise JudgeStageError("EvidencePack is missing body_sha256 and body")
+    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+def _canonical_candidate_names(
+    evidence_packs: Sequence[Mapping[str, Any]],
+) -> dict[str, str]:
+    names: dict[str, str] = {}
+    for pack in evidence_packs:
+        candidate_id = str(pack.get("candidate_id") or "")
+        identity = pack.get("identity")
+        name = identity.get("name") if isinstance(identity, Mapping) else None
+        if not candidate_id or not isinstance(name, str) or not name.strip():
+            raise JudgeStageError(
+                f"EvidencePack {candidate_id or '<missing>'} is missing identity.name"
+            )
+        names[candidate_id] = name
+    return names
+
+
+def _has_unsupported_integration_warning(
+    acquisition: Mapping[str, Any] | None,
+) -> bool:
+    warnings = acquisition.get("warnings", []) if acquisition else []
+    if not isinstance(warnings, list):
+        return False
+    return any(
+        isinstance(warning, Mapping)
+        and warning.get("code") == "unsupported_family_surface"
+        and warning.get("family") == "integration"
+        for warning in warnings
+    )
 
 
 def _is_mapping(value: Any) -> bool:
@@ -290,6 +347,7 @@ def validate_final_advice(value: Any) -> dict[str, Any]:
 def validate_final_advice_against_judgements(
     advice: Mapping[str, Any],
     judgements: Sequence[Mapping[str, Any]],
+    candidate_names: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Ensure Advice only selects judged candidates and respects dispositions."""
 
@@ -322,6 +380,24 @@ def validate_final_advice_against_judgements(
     for field, judgement in selected:
         ref = normalized[field]
         assert ref is not None
+        candidate_id = ref["candidate_id"]
+        if candidate_names is not None:
+            if candidate_id not in candidate_names:
+                raise JudgeValidationError(
+                    "FinalAdvice",
+                    [f"{field} has no canonical EvidencePack name: {candidate_id}"],
+                )
+            canonical_name = candidate_names[candidate_id]
+            returned_name = ref.get("name")
+            if returned_name is not None and returned_name != canonical_name:
+                raise JudgeValidationError(
+                    "FinalAdvice",
+                    [
+                        f"{field} name does not match EvidencePack identity.name "
+                        f"for candidate_id={candidate_id}"
+                    ],
+                )
+            ref["name"] = canonical_name
         disposition = judgement["disposition"]
         expected = "companion" if field == "companion" else "viable"
         if disposition != expected:
@@ -342,6 +418,24 @@ def validate_final_advice_against_judgements(
             names[name] = ref["candidate_id"]
     for ref in normalized["deferred"]:
         judgement = by_id[ref["candidate_id"]]
+        if candidate_names is not None:
+            candidate_id = ref["candidate_id"]
+            if candidate_id not in candidate_names:
+                raise JudgeValidationError(
+                    "FinalAdvice",
+                    [f"deferred has no canonical EvidencePack name: {candidate_id}"],
+                )
+            canonical_name = candidate_names[candidate_id]
+            returned_name = ref.get("name")
+            if returned_name is not None and returned_name != canonical_name:
+                raise JudgeValidationError(
+                    "FinalAdvice",
+                    [
+                        "deferred name does not match EvidencePack identity.name "
+                        f"for candidate_id={candidate_id}"
+                    ],
+                )
+            ref["name"] = canonical_name
         if judgement["disposition"] != "defer":
             raise JudgeValidationError(
                 "FinalAdvice",
@@ -453,10 +547,10 @@ Rules:
 Return only this JSON shape:
 {{
   "status": "recommendation | no_intervention | insufficient_evidence | needs_clarification | source_error",
-  "primary": {{"candidate_id": "string", "name": "string", "reason": "string"}} or null,
-  "supporting": {{"candidate_id": "string", "name": "string", "reason": "string"}} or null,
-  "companion": {{"candidate_id": "string", "name": "string", "reason": "string"}} or null,
-  "deferred": [{{"candidate_id": "string", "name": "string", "reason": "string"}}],
+  "primary": {{"candidate_id": "string", "reason": "string", "name": "optional"}} or null,
+  "supporting": {{"candidate_id": "string", "reason": "string", "name": "optional"}} or null,
+  "companion": {{"candidate_id": "string", "reason": "string", "name": "optional"}} or null,
+  "deferred": [{{"candidate_id": "string", "reason": "string", "name": "optional"}}],
   "uncertainties": ["string"]
 }}
 
@@ -507,7 +601,29 @@ Original instructions:
 
 
 def _write_json(path: Path, value: Any) -> None:
-    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    payload = json.dumps(value, ensure_ascii=False, indent=2) + "\n"
+    temporary_path: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary_path = handle.name
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, path)
+        temporary_path = None
+    finally:
+        if temporary_path:
+            try:
+                os.unlink(temporary_path)
+            except FileNotFoundError:
+                pass
 
 
 def _append_trace(
@@ -545,6 +661,87 @@ def _empty_advice(status: str, uncertainties: Sequence[str] = ()) -> dict[str, A
         "deferred": [],
         "uncertainties": list(uncertainties),
     }
+
+
+def _judgement_artifact(
+    *,
+    run_id: str,
+    expected_candidate_count: int,
+    judgements: Sequence[Mapping[str, Any]],
+    input_fingerprints: Mapping[str, str],
+    stage_status: str,
+) -> dict[str, Any]:
+    return {
+        "schema_version": "checkpoint4.judgements.v0",
+        "run_id": run_id,
+        "stage": "Candidate Judgement",
+        "stage_status": stage_status,
+        "expected_candidate_count": expected_candidate_count,
+        "judged_candidate_count": len(judgements),
+        "input_fingerprints": dict(input_fingerprints),
+        "judgements": [dict(judgement) for judgement in judgements],
+    }
+
+
+def _load_judgement_progress(
+    path: Path,
+    evidence_packs: Sequence[Mapping[str, Any]],
+) -> tuple[str | None, list[dict[str, Any]], dict[str, str]]:
+    if not path.exists():
+        return None, [], {}
+    artifact = _read_json(path)
+    stage_status = artifact.get("stage_status")
+    if stage_status not in {"in_progress", "complete"}:
+        return None, [], {}
+    expected_count = artifact.get("expected_candidate_count")
+    if expected_count != len(evidence_packs):
+        raise JudgeStageError(
+            "06_judgements.json expected_candidate_count does not match Evidence Packs"
+        )
+    raw_judgements = artifact.get("judgements")
+    fingerprints = artifact.get("input_fingerprints")
+    if not isinstance(raw_judgements, list) or not isinstance(fingerprints, Mapping):
+        raise JudgeStageError(
+            "06_judgements.json is missing resumable judgement fingerprints"
+        )
+
+    packs_by_id = {
+        str(pack.get("candidate_id") or ""): pack
+        for pack in evidence_packs
+    }
+    loaded: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for raw in raw_judgements:
+        judgement = validate_candidate_judgement(raw)
+        candidate_id = judgement["candidate_id"]
+        if candidate_id in seen:
+            raise JudgeStageError(f"06_judgements.json duplicates candidate_id={candidate_id}")
+        pack = packs_by_id.get(candidate_id)
+        if pack is None:
+            raise JudgeStageError(
+                f"06_judgements.json contains unknown candidate_id={candidate_id}"
+            )
+        stored_fingerprint = fingerprints.get(candidate_id)
+        current_fingerprint = _body_fingerprint(pack)
+        if stored_fingerprint != current_fingerprint:
+            raise JudgeStageError(
+                f"stale judgement input for candidate_id={candidate_id}: "
+                "EvidencePack body_sha256 changed"
+            )
+        invalid_refs = set(judgement["evidence"]) - EVIDENCE_REFS
+        invalid_refs.update(
+            ref for ref in judgement["evidence"]
+            if not evidence_ref_resolves(pack, ref)
+        )
+        if invalid_refs:
+            raise JudgeStageError(
+                f"stored judgement has invalid EvidencePack references: {sorted(invalid_refs)}"
+            )
+        seen.add(candidate_id)
+        loaded.append(judgement)
+    if artifact.get("judged_candidate_count") != len(loaded):
+        raise JudgeStageError("06_judgements.json judged_candidate_count is inconsistent")
+    return stage_status, loaded, {str(key): str(value) for key, value in fingerprints.items()}
 
 
 @dataclass(frozen=True)
@@ -638,21 +835,57 @@ class JudgeRuntime:
                 uncertainties=warning_text,
                 reason="no judgeable EvidencePack is available",
             )
+        if any(not isinstance(pack, Mapping) for pack in packs):
+            raise JudgeStageError("EvidencePack must be an object")
+        candidate_ids = [str(pack.get("candidate_id") or "") for pack in packs]
+        if any(not candidate_id for candidate_id in candidate_ids):
+            raise JudgeStageError("EvidencePack is missing candidate_id")
+        if len(candidate_ids) != len(set(candidate_ids)):
+            raise JudgeStageError("Evidence Packs contain duplicate candidate_id values")
+        canonical_names = _canonical_candidate_names(packs)
+        judgement_path = output_dir / "06_judgements.json"
+        persisted_status, judgements, input_fingerprints = _load_judgement_progress(
+            judgement_path,
+            packs,
+        )
+        completed_ids = {judgement["candidate_id"] for judgement in judgements}
+        if persisted_status == "complete" and len(completed_ids) != len(packs):
+            raise JudgeStageError(
+                "06_judgements.json marked complete before all candidates were judged"
+            )
 
         _append_trace(
             trace_path,
             run_id,
             "stage_start",
             "Candidate Judgement",
-            {"prompt_version": JUDGE_PROMPT_VERSION, "candidate_count": len(packs)},
+            {
+                "prompt_version": JUDGE_PROMPT_VERSION,
+                "candidate_count": len(packs),
+                "resumed_candidate_count": len(judgements),
+            },
         )
-        judgements: list[dict[str, Any]] = []
+        _write_json(
+            judgement_path,
+            _judgement_artifact(
+                run_id=run_id,
+                expected_candidate_count=len(packs),
+                judgements=judgements,
+                input_fingerprints=input_fingerprints,
+                stage_status="in_progress",
+            ),
+        )
         for pack in packs:
-            if not isinstance(pack, Mapping):
-                raise JudgeStageError("EvidencePack must be an object")
             candidate_id = str(pack.get("candidate_id") or "")
-            if not candidate_id:
-                raise JudgeStageError("EvidencePack is missing candidate_id")
+            if candidate_id in completed_ids:
+                _append_trace(
+                    trace_path,
+                    run_id,
+                    "candidate_judgement_resumed",
+                    "Candidate Judgement",
+                    {"candidate_id": candidate_id},
+                )
+                continue
             _append_trace(
                 trace_path,
                 run_id,
@@ -682,11 +915,27 @@ class JudgeRuntime:
                     f"for pack={candidate_id!r}"
                 )
             invalid_refs = set(judgement["evidence"]) - EVIDENCE_REFS
+            invalid_refs.update(
+                ref for ref in judgement["evidence"]
+                if not evidence_ref_resolves(pack, ref)
+            )
             if invalid_refs:
                 raise JudgeStageError(
                     f"Judge returned evidence references outside EvidencePack: {sorted(invalid_refs)}"
                 )
             judgements.append(judgement)
+            input_fingerprints[candidate_id] = _body_fingerprint(pack)
+            completed_ids.add(candidate_id)
+            _write_json(
+                judgement_path,
+                _judgement_artifact(
+                    run_id=run_id,
+                    expected_candidate_count=len(packs),
+                    judgements=judgements,
+                    input_fingerprints=input_fingerprints,
+                    stage_status="in_progress",
+                ),
+            )
             _append_trace(
                 trace_path,
                 run_id,
@@ -698,14 +947,16 @@ class JudgeRuntime:
                 },
             )
 
-        judgement_artifact = {
-            "schema_version": "checkpoint4.judgements.v0",
-            "run_id": run_id,
-            "stage": "Candidate Judgement",
-            "judged_candidate_count": len(judgements),
-            "judgements": judgements,
-        }
-        _write_json(output_dir / "06_judgements.json", judgement_artifact)
+        _write_json(
+            judgement_path,
+            _judgement_artifact(
+                run_id=run_id,
+                expected_candidate_count=len(packs),
+                judgements=judgements,
+                input_fingerprints=input_fingerprints,
+                stage_status="complete",
+            ),
+        )
         _append_trace(
             trace_path,
             run_id,
@@ -735,15 +986,20 @@ class JudgeRuntime:
             validator=lambda value: validate_final_advice_against_judgements(
                 value,
                 judgements,
+                canonical_names,
             ),
             context={},
         )
-        if acquisition and acquisition.get("warnings"):
+        if _has_unsupported_integration_warning(acquisition):
             uncertainties = list(advice["uncertainties"])
             if UNSUPPORTED_INTEGRATION_UNCERTAINTY not in uncertainties:
                 uncertainties.append(UNSUPPORTED_INTEGRATION_UNCERTAINTY)
             advice["uncertainties"] = uncertainties
-            advice = validate_final_advice_against_judgements(advice, judgements)
+            advice = validate_final_advice_against_judgements(
+                advice,
+                judgements,
+                canonical_names,
+            )
         _write_json(
             output_dir / "07_final_advice.json",
             {
