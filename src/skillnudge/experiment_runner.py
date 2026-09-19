@@ -14,6 +14,7 @@ reasoning or chain-of-thought into result payloads or trace details.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 import time
@@ -21,13 +22,28 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping, Protocol, Sequence
+from typing import Any, Callable, Mapping, Protocol, Sequence, runtime_checkable
 
 
 EXPERIMENT_RUN_SCHEMA = "experiment.run.v0"
 TRACE_EVENT_SCHEMA = "trace.event.experiment.v0"
 EVIDENCE_SCHEMA = "utility.evidence.experiment.v0"
 SYSTEMATIC_DEBUGGING_SKILL = "systematic-debugging-v6.4.1"
+FROZEN_SKILL_ARTIFACT_ID = "systematic-debugging-superpowers-v6.4.1-source-unit"
+FROZEN_SKILL_REPOSITORY = "https://github.com/obra/superpowers"
+FROZEN_SKILL_VERSION = "v6.4.1"
+FROZEN_SKILL_SOURCE_PATHS = (
+    "skills/systematic-debugging/SKILL.md",
+    "skills/systematic-debugging/root-cause-tracing.md",
+    "skills/systematic-debugging/defense-in-depth.md",
+    "skills/systematic-debugging/condition-based-waiting.md",
+)
+FROZEN_SKILL_MANIFEST_SHA256 = (
+    "92dc8f44a0a729f72e32e1c000f0e37ad8cfb9cbd6346ed4ddbe92694ebe86eb"
+)
+SKILL_RENDERER_WRAPPER_REVISION = "skillnudge-fixed-context-v0"
+FIXTURE_HARNESS_VERSION = "fixture-harness-v0"
+FIXTURE_ORACLE_VERSION = "fixture-oracle-v0"
 
 SUPPORTED_SKILLS = frozenset({SYSTEMATIC_DEBUGGING_SKILL})
 SUPPORTED_TRACE_EVENTS = frozenset(
@@ -99,7 +115,7 @@ def _assert_observable_payload(value: Any, path: str = "payload") -> None:
                     [f"{path}.{key} is not allowed in observable artifacts"],
                 )
             _assert_observable_payload(child, f"{path}.{key}")
-    elif isinstance(value, list):
+    elif isinstance(value, (list, tuple)):
         for index, child in enumerate(value):
             _assert_observable_payload(child, f"{path}[{index}]")
 
@@ -120,6 +136,182 @@ def _write_json(path: Path, value: Mapping[str, Any]) -> None:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+@dataclass(frozen=True)
+class ExecutionBudget:
+    """The bounded execution budget exposed by an Agent Adapter."""
+
+    max_steps: int = 40
+    max_tool_calls: int = 80
+    max_tokens: int | None = 32_000
+    max_latency_ms: int | None = 300_000
+
+    def __post_init__(self) -> None:
+        for name in ("max_steps", "max_tool_calls"):
+            value = getattr(self, name)
+            if not isinstance(value, int) or value < 0:
+                raise ValueError(f"{name} must be a non-negative integer")
+        for name in ("max_tokens", "max_latency_ms"):
+            value = getattr(self, name)
+            if value is not None and (not isinstance(value, int) or value < 0):
+                raise ValueError(f"{name} must be null or a non-negative integer")
+
+    def as_dict(self) -> dict[str, int | None]:
+        return {
+            "max_steps": self.max_steps,
+            "max_tool_calls": self.max_tool_calls,
+            "max_tokens": self.max_tokens,
+            "max_latency_ms": self.max_latency_ms,
+        }
+
+
+@dataclass(frozen=True)
+class SkillExposure:
+    """The agent-visible result of one static Skill rendering."""
+
+    skill_identity: str | None
+    skill_version: str | None
+    payload_hash: str | None
+    manifest_hash: str | None
+    visible_context: str
+    file_paths: tuple[str, ...] = ()
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "skill_identity": self.skill_identity,
+            "skill_version": self.skill_version,
+            "payload_hash": self.payload_hash,
+            "manifest_hash": self.manifest_hash,
+            "file_paths": list(self.file_paths),
+        }
+
+
+class SkillExposureRenderer:
+    """Render only the frozen source unit; no external fetch or routing occurs."""
+
+    def __init__(
+        self,
+        payload_files: Mapping[str, str | bytes] | None = None,
+        *,
+        wrapper_revision: str = SKILL_RENDERER_WRAPPER_REVISION,
+        expected_manifest_sha256: str | None = None,
+    ):
+        self.payload_files = dict(payload_files or {})
+        self.wrapper_revision = wrapper_revision
+        self.expected_manifest_sha256 = expected_manifest_sha256
+        extra_paths = sorted(set(self.payload_files) - set(FROZEN_SKILL_SOURCE_PATHS))
+        missing_paths = [
+            path for path in FROZEN_SKILL_SOURCE_PATHS if path not in self.payload_files
+        ]
+        if extra_paths or (self.payload_files and missing_paths):
+            raise ValueError(
+                "payload_files must contain exactly the frozen four-file source unit; "
+                f"missing={missing_paths}, extra={extra_paths}"
+            )
+
+    @staticmethod
+    def _content_bytes(content: str | bytes) -> bytes:
+        if isinstance(content, bytes):
+            return content
+        if isinstance(content, str):
+            return content.encode("utf-8")
+        raise TypeError("Skill payload content must be str or bytes")
+
+    def _manifest_hash(self) -> str:
+        records = []
+        for path in FROZEN_SKILL_SOURCE_PATHS:
+            digest = hashlib.sha256(
+                self._content_bytes(self.payload_files[path])
+            ).hexdigest()
+            records.append(f"{path}\tsha256:{digest}")
+        canonical = "\n".join(records) + "\n"
+        manifest_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        if (
+            self.expected_manifest_sha256 is not None
+            and manifest_hash != self.expected_manifest_sha256
+        ):
+            raise ExperimentRunError(
+                "FROZEN_SKILL_MANIFEST_MISMATCH: "
+                f"expected={self.expected_manifest_sha256} actual={manifest_hash}"
+            )
+        return manifest_hash
+
+    def render(self, condition: "Condition") -> SkillExposure:
+        condition = Condition.from_value(condition)
+        if condition.skill is None:
+            return SkillExposure(
+                skill_identity=None,
+                skill_version=None,
+                payload_hash=None,
+                manifest_hash=None,
+                visible_context="",
+            )
+        if condition.skill != SYSTEMATIC_DEBUGGING_SKILL:
+            raise ExperimentRunError(
+                f"unsupported Skill exposure condition: {condition.skill}"
+            )
+        if not self.payload_files:
+            raise ExperimentRunError(
+                "FROZEN_SKILL_PAYLOAD_REQUIRED: treatment needs all four source files"
+            )
+
+        manifest_hash = self._manifest_hash()
+        sections = [
+            f"wrapper_revision: {self.wrapper_revision}",
+            f"artifact_id: {FROZEN_SKILL_ARTIFACT_ID}",
+            f"source_repository: {FROZEN_SKILL_REPOSITORY}",
+            f"source_version: {FROZEN_SKILL_VERSION}",
+            f"source_manifest_sha256: {manifest_hash}",
+            "",
+        ]
+        for path in FROZEN_SKILL_SOURCE_PATHS:
+            content = self._content_bytes(self.payload_files[path]).decode("utf-8")
+            sections.append(f"--- BEGIN {path} ---")
+            sections.append(content.rstrip("\n"))
+            sections.append(f"--- END {path} ---")
+            sections.append("")
+        visible_context = "\n".join(sections)
+        payload_hash = hashlib.sha256(visible_context.encode("utf-8")).hexdigest()
+        return SkillExposure(
+            skill_identity=FROZEN_SKILL_ARTIFACT_ID,
+            skill_version=FROZEN_SKILL_VERSION,
+            payload_hash=payload_hash,
+            manifest_hash=manifest_hash,
+            visible_context=visible_context,
+            file_paths=FROZEN_SKILL_SOURCE_PATHS,
+        )
+
+
+@dataclass(frozen=True)
+class AgentExecutionContext:
+    """Only task-visible execution context passed from the adapter to an Agent."""
+
+    condition: "Condition"
+    visible_context: str
+    skill_identity: str | None
+    skill_version: str | None
+    skill_manifest_hash: str | None
+    skill_payload_hash: str | None
+    model: str
+    harness_version: str
+    tool_manifest: Mapping[str, Any]
+    execution_budget: Mapping[str, Any]
+    environment_hash: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "condition": self.condition.as_dict(),
+            "skill_identity": self.skill_identity,
+            "skill_version": self.skill_version,
+            "skill_manifest_hash": self.skill_manifest_hash,
+            "skill_payload_hash": self.skill_payload_hash,
+            "model": self.model,
+            "harness_version": self.harness_version,
+            "tool_manifest": dict(self.tool_manifest),
+            "execution_budget": dict(self.execution_budget),
+            "environment_hash": self.environment_hash,
+        }
 
 
 @dataclass(frozen=True)
@@ -227,6 +419,11 @@ class ExperimentRun:
     tool_manifest: Mapping[str, Any]
     environment_hash: str
     timestamp: str
+    skill_identity: str | None = None
+    skill_manifest_hash: str | None = None
+    skill_payload_hash: str | None = None
+    oracle_version: str = "unconfigured"
+    execution_budget: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         validate_experiment_run(self.as_dict())
@@ -246,6 +443,11 @@ class ExperimentRun:
             tool_manifest=dict(value["tool_manifest"]),
             environment_hash=value["environment_hash"],
             timestamp=value["timestamp"],
+            skill_identity=value.get("skill_identity"),
+            skill_manifest_hash=value.get("skill_manifest_hash"),
+            skill_payload_hash=value.get("skill_payload_hash"),
+            oracle_version=value.get("oracle_version", "unconfigured"),
+            execution_budget=dict(value.get("execution_budget", {})),
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -261,6 +463,11 @@ class ExperimentRun:
             "tool_manifest": dict(self.tool_manifest),
             "environment_hash": self.environment_hash,
             "timestamp": self.timestamp,
+            "skill_identity": self.skill_identity,
+            "skill_manifest_hash": self.skill_manifest_hash,
+            "skill_payload_hash": self.skill_payload_hash,
+            "oracle_version": self.oracle_version,
+            "execution_budget": dict(self.execution_budget),
         }
 
 
@@ -280,6 +487,11 @@ def validate_experiment_run(value: Any) -> dict[str, Any]:
         "tool_manifest",
         "environment_hash",
         "timestamp",
+        "skill_identity",
+        "skill_manifest_hash",
+        "skill_payload_hash",
+        "oracle_version",
+        "execution_budget",
     }
     _unexpected(value, allowed, errors)
     if value.get("schema_version") != EXPERIMENT_RUN_SCHEMA:
@@ -298,11 +510,31 @@ def validate_experiment_run(value: Any) -> dict[str, Any]:
         errors.append("condition must be an object")
     if not _is_mapping(value.get("tool_manifest")):
         errors.append("tool_manifest must be an object")
+    if not _is_mapping(value.get("execution_budget", {})):
+        errors.append("execution_budget must be an object")
     skill_version = value.get("skill_version")
     if skill_version is not None and (
         not isinstance(skill_version, str) or skill_version not in SUPPORTED_SKILLS
     ):
         errors.append(f"skill_version must be null or one of {sorted(SUPPORTED_SKILLS)}")
+    skill_payload_hash = value.get("skill_payload_hash")
+    if skill_payload_hash is not None and (
+        not isinstance(skill_payload_hash, str) or not skill_payload_hash.strip()
+    ):
+        errors.append("skill_payload_hash must be null or a non-empty string")
+    skill_identity = value.get("skill_identity")
+    if skill_identity is not None and (
+        not isinstance(skill_identity, str) or not skill_identity.strip()
+    ):
+        errors.append("skill_identity must be null or a non-empty string")
+    skill_manifest_hash = value.get("skill_manifest_hash")
+    if skill_manifest_hash is not None and (
+        not isinstance(skill_manifest_hash, str) or not skill_manifest_hash.strip()
+    ):
+        errors.append("skill_manifest_hash must be null or a non-empty string")
+    oracle_version = value.get("oracle_version", "unconfigured")
+    if not isinstance(oracle_version, str) or not oracle_version.strip():
+        errors.append("oracle_version must be a non-empty string")
     if _is_mapping(value.get("condition")):
         try:
             condition = Condition.from_value(value["condition"])
@@ -424,6 +656,9 @@ class OracleResult:
     regression: bool | None
     diagnostics: list[str]
     tests_passed: int | None = None
+    target_status: str | None = None
+    regression_status: str | None = None
+    evaluator_valid: bool | None = None
 
     def __post_init__(self) -> None:
         if self.success is not None and not isinstance(self.success, bool):
@@ -438,6 +673,30 @@ class OracleResult:
             not isinstance(self.tests_passed, int) or self.tests_passed < 0
         ):
             raise ValueError("tests_passed must be null or a non-negative integer")
+        target_status = self.target_status
+        if target_status is None:
+            target_status = (
+                "pass" if self.success is True else
+                "fail" if self.success is False else
+                "unknown"
+            )
+            object.__setattr__(self, "target_status", target_status)
+        if target_status not in {"pass", "fail", "unknown"}:
+            raise ValueError("target_status must be pass, fail, or unknown")
+        regression_status = self.regression_status
+        if regression_status is None:
+            regression_status = (
+                "fail" if self.regression is True else
+                "pass" if self.regression is False else
+                "unknown"
+            )
+            object.__setattr__(self, "regression_status", regression_status)
+        if regression_status not in {"pass", "fail", "unknown"}:
+            raise ValueError("regression_status must be pass, fail, or unknown")
+        if self.evaluator_valid is not None and not isinstance(
+            self.evaluator_valid, bool
+        ):
+            raise ValueError("evaluator_valid must be true, false, or null")
 
     @classmethod
     def from_value(cls, value: Any) -> "OracleResult":
@@ -451,6 +710,9 @@ class OracleResult:
             regression=value["regression"],
             diagnostics=list(value["diagnostics"]),
             tests_passed=value.get("tests_passed"),
+            target_status=value.get("target_status"),
+            regression_status=value.get("regression_status"),
+            evaluator_valid=value.get("evaluator_valid"),
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -459,6 +721,9 @@ class OracleResult:
             "regression": self.regression,
             "diagnostics": list(self.diagnostics),
             "tests_passed": self.tests_passed,
+            "target_status": self.target_status,
+            "regression_status": self.regression_status,
+            "evaluator_valid": self.evaluator_valid,
         }
 
 
@@ -466,7 +731,15 @@ def validate_oracle_result(value: Any) -> dict[str, Any]:
     if not _is_mapping(value):
         raise ExperimentSchemaError("OracleResult", ["oracle result must be an object"])
     errors: list[str] = []
-    allowed = {"success", "regression", "diagnostics", "tests_passed"}
+    allowed = {
+        "success",
+        "regression",
+        "diagnostics",
+        "tests_passed",
+        "target_status",
+        "regression_status",
+        "evaluator_valid",
+    }
     _unexpected(value, allowed, errors)
     if not isinstance(value.get("success"), (bool, type(None))):
         errors.append("success must be true, false, or null")
@@ -482,6 +755,13 @@ def validate_oracle_result(value: Any) -> dict[str, Any]:
         not isinstance(tests_passed, int) or tests_passed < 0
     ):
         errors.append("tests_passed must be null or a non-negative integer")
+    for key in ("target_status", "regression_status"):
+        status = value.get(key)
+        if status is not None and status not in {"pass", "fail", "unknown"}:
+            errors.append(f"{key} must be pass, fail, or unknown")
+    evaluator_valid = value.get("evaluator_valid")
+    if evaluator_valid is not None and not isinstance(evaluator_valid, bool):
+        errors.append("evaluator_valid must be true, false, or null")
     if errors:
         raise ExperimentSchemaError("OracleResult", errors)
     return dict(value)
@@ -593,7 +873,7 @@ def validate_utility_evidence(value: Any) -> dict[str, Any]:
 
 
 class Agent(Protocol):
-    """Adapter boundary for a future model/harness implementation."""
+    """Legacy runner seam; use AgentAdapter for real execution metadata."""
 
     def run(
         self,
@@ -604,11 +884,101 @@ class Agent(Protocol):
         """Execute one task and emit only observable events."""
 
 
+class ExecutionAgent(Protocol):
+    """Underlying agent callback that receives only visible execution context."""
+
+    def run(
+        self,
+        task: TaskArtifact,
+        context: AgentExecutionContext,
+        trace: TraceRecorder,
+    ) -> AgentResult:
+        """Execute one task without access to Oracle-only information."""
+
+
+@runtime_checkable
+class AgentAdapter(Protocol):
+    """Minimal SkillNudge-to-Agent execution boundary."""
+
+    model: str
+    harness_version: str
+    tool_manifest: Mapping[str, Any]
+    execution_budget: ExecutionBudget
+    environment_hash: str
+
+    def exposure_for(self, condition: Condition) -> SkillExposure:
+        """Return the deterministic Skill exposure for a condition."""
+
+    def run(
+        self,
+        task: TaskArtifact,
+        condition: Condition,
+        trace: TraceRecorder,
+    ) -> AgentResult:
+        """Construct visible context and execute the underlying Agent."""
+
+
+@dataclass
+class FixtureAgentAdapter:
+    """Concrete adapter used by tests and the local fixture experiment."""
+
+    execution_agent: ExecutionAgent
+    renderer: SkillExposureRenderer
+    model: str
+    harness_version: str
+    tool_manifest: Mapping[str, Any]
+    execution_budget: ExecutionBudget
+    environment_hash: str
+
+    def __post_init__(self) -> None:
+        if not self.model.strip():
+            raise ValueError("model must be a non-empty string")
+        if not self.harness_version.strip():
+            raise ValueError("harness_version must be a non-empty string")
+        if not self.environment_hash.strip():
+            raise ValueError("environment_hash must be a non-empty string")
+        _assert_observable_payload(self.tool_manifest, "tool_manifest")
+        _assert_json_serializable(self.tool_manifest, "AgentAdapter")
+
+    def exposure_for(self, condition: Condition) -> SkillExposure:
+        return self.renderer.render(condition)
+
+    def context_for(self, condition: Condition) -> AgentExecutionContext:
+        exposure = self.exposure_for(condition)
+        return AgentExecutionContext(
+            condition=Condition.from_value(condition),
+            visible_context=exposure.visible_context,
+            skill_identity=exposure.skill_identity,
+            skill_version=exposure.skill_version,
+            skill_manifest_hash=exposure.manifest_hash,
+            skill_payload_hash=exposure.payload_hash,
+            model=self.model,
+            harness_version=self.harness_version,
+            tool_manifest=dict(self.tool_manifest),
+            execution_budget=self.execution_budget.as_dict(),
+            environment_hash=self.environment_hash,
+        )
+
+    def run(
+        self,
+        task: TaskArtifact,
+        condition: Condition,
+        trace: TraceRecorder,
+    ) -> AgentResult:
+        context = self.context_for(condition)
+        return self.execution_agent.run(task, context, trace)
+
+
 class Oracle(Protocol):
     """Task oracle boundary; the final benchmark implementation is deferred."""
 
+    oracle_version: str
+
     def evaluate(self, task: TaskArtifact, result: Any) -> OracleResult:
         """Return success, regression, diagnostics, and optional test counts."""
+
+
+OracleAdapter = Oracle
 
 
 @dataclass(frozen=True)
@@ -643,11 +1013,14 @@ class ExperimentRunner:
         *,
         experiment_id: str,
         condition: Condition | Mapping[str, Any],
-        model: str,
-        harness_version: str,
+        model: str | None = None,
+        harness_version: str | None = None,
         skill_version: str | None = None,
+        skill_payload_hash: str | None = None,
         tool_manifest: Mapping[str, Any] | None = None,
-        environment_hash: str,
+        execution_budget: ExecutionBudget | Mapping[str, Any] | None = None,
+        environment_hash: str | None = None,
+        oracle_version: str | None = None,
         run_dir: str | Path,
         run_id: str | None = None,
     ) -> ExperimentResult:
@@ -655,6 +1028,50 @@ class ExperimentRunner:
             task if isinstance(task, TaskArtifact) else TaskArtifact.from_dict(task)
         )
         condition_artifact = Condition.from_value(condition)
+        adapter_metadata: AgentAdapter | None = None
+        exposure: SkillExposure | None = None
+        if isinstance(self.agent, AgentAdapter):
+            adapter_metadata = self.agent
+            exposure = adapter_metadata.exposure_for(condition_artifact)
+            model = model or adapter_metadata.model
+            harness_version = harness_version or adapter_metadata.harness_version
+            tool_manifest = (
+                dict(tool_manifest)
+                if tool_manifest is not None
+                else dict(adapter_metadata.tool_manifest)
+            )
+            environment_hash = environment_hash or adapter_metadata.environment_hash
+            if execution_budget is None:
+                execution_budget = adapter_metadata.execution_budget
+            if skill_payload_hash is None:
+                skill_payload_hash = exposure.payload_hash
+        if condition_artifact.skill is not None and exposure is None:
+            raise ExperimentRunError(
+                "FROZEN_SKILL_PAYLOAD_REQUIRED: treatment requires an AgentAdapter "
+                "with a static Skill exposure"
+            )
+        if exposure is not None:
+            if (
+                skill_payload_hash is not None
+                and skill_payload_hash != exposure.payload_hash
+            ):
+                raise ExperimentRunError(
+                    "skill_payload_hash must match the rendered Skill exposure"
+                )
+            skill_payload_hash = exposure.payload_hash
+        model = model or "unconfigured"
+        harness_version = harness_version or "unconfigured"
+        environment_hash = environment_hash or "unconfigured"
+        if tool_manifest is None:
+            tool_manifest = {}
+        if isinstance(execution_budget, ExecutionBudget):
+            execution_budget = execution_budget.as_dict()
+        elif execution_budget is None:
+            execution_budget = {}
+        else:
+            execution_budget = dict(execution_budget)
+        if oracle_version is None:
+            oracle_version = getattr(self.oracle, "oracle_version", "unconfigured")
         if skill_version is not None and skill_version != condition_artifact.skill:
             raise ExperimentRunError("skill_version must match condition.skill")
         if skill_version is None:
@@ -678,8 +1095,14 @@ class ExperimentRunner:
             tool_manifest=dict(tool_manifest or {}),
             environment_hash=environment_hash,
             timestamp=self.clock(),
+            skill_identity=exposure.skill_identity if exposure is not None else None,
+            skill_manifest_hash=exposure.manifest_hash if exposure is not None else None,
+            skill_payload_hash=skill_payload_hash,
+            oracle_version=oracle_version,
+            execution_budget=dict(execution_budget),
         )
         _write_json(output_dir / "experiment_run.json", run.as_dict())
+        _write_json(output_dir / "run_manifest.json", run.as_dict())
         _write_json(output_dir / "task.json", task_artifact.as_dict())
 
         trace = TraceRecorder(output_dir / "trace.jsonl", run.run_id)
@@ -691,6 +1114,12 @@ class ExperimentRunner:
                     "condition": condition_artifact.as_dict(),
                     "condition_name": condition_artifact.name,
                     "task_id": task_artifact.task_id,
+                    "model": run.model,
+                    "harness_version": run.harness_version,
+                    "skill_identity": run.skill_identity,
+                    "skill_manifest_hash": run.skill_manifest_hash,
+                    "skill_payload_hash": run.skill_payload_hash,
+                    "execution_budget": dict(run.execution_budget),
                 },
             )
             agent_result = self.agent.run(task_artifact, condition_artifact, trace)
@@ -705,6 +1134,9 @@ class ExperimentRunner:
                     "source": "oracle",
                     "success": oracle_result.success,
                     "regression": oracle_result.regression,
+                    "target_status": oracle_result.target_status,
+                    "regression_status": oracle_result.regression_status,
+                    "evaluator_valid": oracle_result.evaluator_valid,
                     "tests_passed": oracle_result.tests_passed,
                 },
             )
@@ -802,13 +1234,18 @@ class FixtureAgent:
     tokens: int | None = 0
     latency_ms: float | None = 0.0
     events: Sequence[tuple[str, Mapping[str, Any]]] = field(default_factory=tuple)
+    last_context: AgentExecutionContext | None = field(
+        default=None, init=False, repr=False
+    )
 
     def run(
         self,
         task: TaskArtifact,
-        condition: Condition,
+        context: Any,
         trace: TraceRecorder,
     ) -> AgentResult:
+        if isinstance(context, AgentExecutionContext):
+            self.last_context = context
         for event, details in self.events:
             trace.emit(event, details)
         return AgentResult(
@@ -822,13 +1259,47 @@ class FixtureAgent:
 class DeferredOracle:
     """Explicit placeholder oracle for the CLI; it never claims task success."""
 
+    oracle_version = "deferred-oracle-v0"
+
     def evaluate(self, task: TaskArtifact, result: Any) -> OracleResult:
         return OracleResult(
             success=None,
             regression=None,
             diagnostics=["ORACLE_NOT_IMPLEMENTED"],
             tests_passed=None,
+            evaluator_valid=None,
         )
+
+
+@dataclass(frozen=True)
+class FixtureOracle:
+    """Deterministic Oracle boundary for the local paired fixture."""
+
+    result: OracleResult = field(
+        default_factory=lambda: OracleResult(
+            success=True,
+            regression=False,
+            diagnostics=["fixture target and regression checks passed"],
+            tests_passed=1,
+            evaluator_valid=True,
+        )
+    )
+    oracle_version: str = FIXTURE_ORACLE_VERSION
+
+    def evaluate(self, task: TaskArtifact, result: Any) -> OracleResult:
+        return self.result
+
+
+def fixture_skill_payload() -> dict[str, str]:
+    """Return a clearly synthetic four-file payload for local plumbing only."""
+
+    return {
+        path: (
+            f"# Fixture surrogate for {path}\n"
+            "This is test data only. It is not the upstream Skill source.\n"
+        )
+        for path in FROZEN_SKILL_SOURCE_PATHS
+    }
 
 
 def _load_task(path: Path) -> TaskArtifact:
@@ -864,14 +1335,19 @@ def main(argv: list[str] | None = None) -> int:
             if args.condition == "control"
             else Condition.treatment()
         )
-        result = ExperimentRunner(FixtureAgent(), DeferredOracle()).run(
-            task,
-            experiment_id=args.experiment_id,
-            condition=condition,
+        agent = FixtureAgentAdapter(
+            execution_agent=FixtureAgent(),
+            renderer=SkillExposureRenderer(fixture_skill_payload()),
             model=args.model,
             harness_version=args.harness_version,
             environment_hash=args.environment_hash,
             tool_manifest={"surface": "fixture_only", "benchmark": "not_run"},
+            execution_budget=ExecutionBudget(),
+        )
+        result = ExperimentRunner(agent, DeferredOracle()).run(
+            task,
+            experiment_id=args.experiment_id,
+            condition=condition,
             run_dir=args.run_dir,
         )
     except (ExperimentRunError, ExperimentSchemaError, OSError, ValueError) as error:
