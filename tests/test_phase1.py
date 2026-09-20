@@ -219,6 +219,45 @@ class Phase1RuntimeTests(unittest.TestCase):
             self.assertFalse((run_dir / "06_judgements.json").exists())
             self.assertTrue((run_dir / "07_final_advice.json").exists())
 
+    def test_optional_project_context_and_current_stage_are_persisted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fake = DeterministicFakeModel(
+                [
+                    _capability(missing=[]),
+                    {
+                        "decision": "no_intervention",
+                        "targets": [],
+                        "decision_reason": "The current task is a direct explanation.",
+                    },
+                ]
+            )
+            run_dir = Path(directory) / "context"
+            result = Phase1Runtime(
+                fake,
+                Path(directory) / "does-not-exist.sqlite3",
+            ).run(
+                InputEnvelope(
+                    "Explain this local error.",
+                    project_context="SkillNudge repository",
+                    current_stage="debugging",
+                ),
+                run_dir,
+            )
+
+            self.assertEqual(
+                result.planning.input_envelope["project_context"],
+                "SkillNudge repository",
+            )
+            self.assertEqual(result.planning.input_envelope["current_stage"], "debugging")
+            input_artifact = json.loads(
+                (run_dir / "00_input.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                input_artifact["input"]["project_context"],
+                "SkillNudge repository",
+            )
+            self.assertEqual(input_artifact["input"]["current_stage"], "debugging")
+
     def test_clarification_stops_before_acquisition_and_judge(self):
         with tempfile.TemporaryDirectory() as directory:
             fake = DeterministicFakeModel(

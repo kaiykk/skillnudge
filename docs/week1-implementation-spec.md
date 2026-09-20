@@ -53,8 +53,9 @@ consistency before the run completes.
 
 The provider boundary is one minimal OpenAI-compatible structured-output
 adapter. A malformed response receives one repair attempt; a second invalid
-response fails explicitly. The live model name must be supplied through
-`SKILLNUDGE_MODEL`; no durable model default is committed.
+response fails explicitly. The provider remains overridable through
+`SKILLNUDGE_MODEL`; Phase 1.1 dogfood documents the official DeepSeek
+`deepseek-flash` configuration as the supported default path.
 
 Acceptance cases are D001 (Skill primary with Resource companion), D002
 (`search`, with Skill or Integration accepted as primary according to the
@@ -165,10 +166,10 @@ PYTHONPATH=src python3 -m skillnudge advise "<request>" --trace
 ```
 
 It renders concise Final Advice by default and exposes the run directory with
-`--trace`. The local SQLite index may be supplied with `--database` or
-`SKILLNUDGE_DATABASE`; an existing local Checkpoint 1 index is auto-discovered
-when one is present. The CLI never prints internal JSON artifacts or model
-private chain-of-thought by default.
+`--trace`. The user-facing CLI builds or reuses the versioned default SQLite
+index automatically; an internal local index may still be supplied with
+`--database` or `SKILLNUDGE_DATABASE`. The CLI never prints internal JSON
+artifacts or model private chain-of-thought by default.
 
 The composition preserves the existing early stops:
 

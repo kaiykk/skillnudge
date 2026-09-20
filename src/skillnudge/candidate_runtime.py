@@ -452,8 +452,13 @@ class CandidateAcquisitionRuntime:
                     "repo": record.get("repo"),
                     "source_url": record.get("source_url"),
                     "source": record.get("source"),
+                    "source_path": record.get("source_path"),
+                    "source_revision": record.get("source_revision"),
                     "license": record.get("license"),
                     "updated_at": record.get("updated_at"),
+                    "content_sha256": record.get("content_sha256"),
+                    "corpus_schema_version": record.get("corpus_schema_version"),
+                    "category": record.get("category"),
                 },
                 "content": {
                     "description": record.get("description"),

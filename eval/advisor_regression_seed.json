@@ -1,0 +1,91 @@
+{
+  "schema_version": "skillnudge.advisor_regression_seed.v0",
+  "status": "seed_only",
+  "purpose": "Small Phase 1 advisor regression seed; coarse expectations are not benchmark gold labels.",
+  "cases": [
+    {
+      "case_id": "advisor-001",
+      "request": "I want to make a dashboard look more polished, but I do not know which design decisions matter.",
+      "project_context": "Small web dashboard",
+      "current_stage": "exploring",
+      "expected_coarse_behavior": "intervention plausible"
+    },
+    {
+      "case_id": "advisor-002",
+      "request": "I need to debug a flaky test, but I keep changing assertions without isolating the cause.",
+      "project_context": "Python repository with tests",
+      "current_stage": "debugging",
+      "expected_coarse_behavior": "intervention plausible"
+    },
+    {
+      "case_id": "advisor-003",
+      "request": "Help me turn a vague product idea into a comparable UI prototype direction.",
+      "project_context": "Frontend prototype",
+      "current_stage": "planning",
+      "expected_coarse_behavior": "intervention plausible"
+    },
+    {
+      "case_id": "advisor-004",
+      "request": "I need a repeatable way to review a long research report for missing evidence.",
+      "project_context": "Research report",
+      "current_stage": "reviewing",
+      "expected_coarse_behavior": "intervention plausible"
+    },
+    {
+      "case_id": "advisor-005",
+      "request": "I keep losing track of assumptions while comparing several data sources.",
+      "project_context": "Local data analysis",
+      "current_stage": "evaluating",
+      "expected_coarse_behavior": "intervention plausible"
+    },
+    {
+      "case_id": "advisor-006",
+      "request": "I need a consistent process for preparing a release checklist across repositories.",
+      "project_context": "Software delivery",
+      "current_stage": "planning",
+      "expected_coarse_behavior": "intervention plausible"
+    },
+    {
+      "case_id": "advisor-007",
+      "request": "What does a Python KeyError mean when I already have the failing line?",
+      "project_context": "Python script",
+      "current_stage": "debugging",
+      "expected_coarse_behavior": "no intervention expected"
+    },
+    {
+      "case_id": "advisor-008",
+      "request": "Rewrite this one sentence to be clearer: The meeting is moved to Friday.",
+      "project_context": "Short message",
+      "current_stage": "implementing",
+      "expected_coarse_behavior": "no intervention expected"
+    },
+    {
+      "case_id": "advisor-009",
+      "request": "Convert these three dates to ISO format: 2026/09/20, 2026/09/21, 2026/09/22.",
+      "project_context": "Data cleanup",
+      "current_stage": "implementing",
+      "expected_coarse_behavior": "no intervention expected"
+    },
+    {
+      "case_id": "advisor-010",
+      "request": "Summarize the paragraph below in two sentences without adding claims.",
+      "project_context": "Document editing",
+      "current_stage": "reviewing",
+      "expected_coarse_behavior": "no intervention expected"
+    },
+    {
+      "case_id": "advisor-011",
+      "request": "I need a skill for my project.",
+      "project_context": null,
+      "current_stage": null,
+      "expected_coarse_behavior": "clarification expected"
+    },
+    {
+      "case_id": "advisor-012",
+      "request": "Make this better and more professional.",
+      "project_context": null,
+      "current_stage": null,
+      "expected_coarse_behavior": "clarification expected"
+    }
+  ]
+}

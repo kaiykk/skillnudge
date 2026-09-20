@@ -284,10 +284,11 @@ class PlanningRuntimeTests(unittest.TestCase):
         from skillnudge import planning_model
 
         with tempfile.TemporaryDirectory() as directory:
-            with patch.object(planning_model, "LOCAL_PROVIDER_ENV_PATH", Path(directory) / "missing.env"):
-                with patch.dict(os.environ, {}, clear=True):
-                    model = OpenAICompatibleModel.from_environment()
-        self.assertEqual(model.model_name, "")
+                with patch.object(planning_model, "LOCAL_PROVIDER_ENV_PATH", Path(directory) / "missing.env"):
+                    with patch.dict(os.environ, {}, clear=True):
+                        model = OpenAICompatibleModel.from_environment()
+        self.assertEqual(model.model_name, "deepseek-flash")
+        self.assertEqual(model.base_url, "https://api.deepseek.com")
         with self.assertRaises(LiveModelProviderUnavailable):
             OpenAICompatibleModel(api_key="test-key").generate_structured(
                 stage="Capability Framing", prompt="{}", prompt_version="test"

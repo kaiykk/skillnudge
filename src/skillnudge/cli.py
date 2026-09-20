@@ -43,3 +43,7 @@ def main(argv: list[str] | None = None) -> int:
     from .phase1 import main as phase1_main
 
     return phase1_main(args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

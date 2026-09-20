@@ -1,0 +1,26 @@
+{
+  "schema_version": "skillnudge.corpus.v2",
+  "record_count": 61,
+  "repositories": [
+    {
+      "repository": "TerminalSkills/skills",
+      "revision": "511ec2060fe9e1b95a42ae042964f56d777b6c9b",
+      "license": "Apache-2.0",
+      "record_count": 60
+    },
+    {
+      "repository": "nextlevelbuilder/ui-ux-pro-max-skill",
+      "revision": "5fe9624cb844266aeae50d8a3f24c403bd456c16",
+      "license": "MIT",
+      "record_count": 1
+    }
+  ],
+  "categories": {
+    "agent-workflow": 8,
+    "coding-testing": 15,
+    "data-docs": 13,
+    "research-domain": 15,
+    "ui-ux": 10
+  },
+  "corpus_sha256": "aa7c53a026f99c895aab8337432bc19d680a3863678c3c35a27bf18cd5498b8f"
+}

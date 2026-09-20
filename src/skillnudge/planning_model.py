@@ -32,6 +32,7 @@ class PlanningModel(Protocol):
 
 LOCAL_PROVIDER_ENV_PATH = Path(__file__).resolve().parents[2] / "config" / "provider.local.env"
 _LOCAL_PROVIDER_KEYS = {
+    "DEEPSEEK_API_KEY",
     "SKILLNUDGE_MODEL",
     "SKILLNUDGE_MODEL_API_KEY",
     "SKILLNUDGE_MODEL_BASE_URL",
@@ -68,15 +69,20 @@ def _read_local_provider_env(path: Path | None = None) -> dict[str, str]:
     return values
 
 
-@dataclass(frozen=True)
+@dataclass
 class OpenAICompatibleModel:
-    """A minimal Chat Completions adapter using only the Python standard library."""
+    """A minimal DeepSeek-compatible Chat Completions adapter."""
 
     api_key: str | None = None
-    base_url: str = "https://api.openai.com/v1"
+    base_url: str = "https://api.deepseek.com"
     model_name: str = ""
     timeout_seconds: float = 60.0
-    provider_name: str = "openai-compatible"
+    provider_name: str = "deepseek"
+    last_response_metadata: dict[str, Any] = field(
+        default_factory=dict,
+        init=False,
+        repr=False,
+    )
 
     @classmethod
     def from_environment(cls) -> "OpenAICompatibleModel":
@@ -85,11 +91,23 @@ class OpenAICompatibleModel:
         def setting(name: str, default: str = "") -> str:
             return os.environ.get(name) or local_env.get(name, default)
 
+        api_key = (
+            os.environ.get("DEEPSEEK_API_KEY")
+            or local_env.get("DEEPSEEK_API_KEY")
+            or os.environ.get("SKILLNUDGE_MODEL_API_KEY")
+            or local_env.get("SKILLNUDGE_MODEL_API_KEY")
+        )
+        base_url = setting("SKILLNUDGE_MODEL_BASE_URL", "https://api.deepseek.com")
         return cls(
-            api_key=setting("SKILLNUDGE_MODEL_API_KEY"),
-            base_url=setting("SKILLNUDGE_MODEL_BASE_URL", "https://api.openai.com/v1"),
-            model_name=setting("SKILLNUDGE_MODEL"),
+            api_key=api_key,
+            base_url=base_url,
+            model_name=setting("SKILLNUDGE_MODEL", "deepseek-flash"),
             timeout_seconds=float(setting("SKILLNUDGE_MODEL_TIMEOUT_SECONDS", "60")),
+            provider_name=(
+                "deepseek"
+                if base_url.rstrip("/") == "https://api.deepseek.com"
+                else "openai-compatible"
+            ),
         )
 
     def generate_structured(self, *, stage: str, prompt: str, prompt_version: str) -> Any:
@@ -100,11 +118,16 @@ class OpenAICompatibleModel:
             "messages": [
                 {
                     "role": "system",
-                    "content": "Return only a valid JSON object matching the requested contract.",
+                    "content": (
+                        "Return only one valid JSON object. The user message "
+                        "contains the exact expected JSON schema; match it "
+                        "without extra fields or markdown."
+                    ),
                 },
                 {"role": "user", "content": prompt},
             ],
             "response_format": {"type": "json_object"},
+            "thinking": {"type": "disabled"},
         }
         request = urllib.request.Request(
             url=self.base_url.rstrip("/") + "/chat/completions",
@@ -122,6 +145,21 @@ class OpenAICompatibleModel:
             raise ModelProviderError(f"MODEL_PROVIDER_HTTP_{error.code}") from error
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, UnicodeDecodeError) as error:
             raise ModelProviderError("MODEL_PROVIDER_REQUEST_FAILED") from error
+
+        usage = payload.get("usage")
+        safe_usage = {}
+        if isinstance(usage, Mapping):
+            for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+                value = usage.get(key)
+                if isinstance(value, int) and not isinstance(value, bool):
+                    safe_usage[key] = value
+        self.last_response_metadata = {
+            "provider": self.provider_name,
+            "base_url": self.base_url.rstrip("/"),
+            "requested_model": self.model_name,
+            "observed_model": payload.get("model"),
+            "usage": safe_usage,
+        }
 
         try:
             content = payload["choices"][0]["message"]["content"]

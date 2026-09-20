@@ -18,10 +18,11 @@ from .retrieval import BuildStats, build_index
 
 
 BOOTSTRAP_SCHEMA_VERSION = "skillnudge.bootstrap.v1"
-DEFAULT_CORPUS_VERSION = "default-seed-v1"
+DEFAULT_CORPUS_VERSION = "public-corpus-v2-2026-09-20"
 DEFAULT_DATABASE_NAME = "skillnudge.sqlite3"
 DEFAULT_METADATA_NAME = "bootstrap.json"
 DEFAULT_CORPUS_RESOURCE = "data/default_corpus.json"
+DEFAULT_MANIFEST_RESOURCE = "data/default_corpus_manifest.json"
 
 
 class BootstrapError(RuntimeError):
@@ -77,6 +78,13 @@ def default_index_path() -> Path:
 @contextmanager
 def _bundled_corpus() -> Iterator[Path]:
     resource = resources.files("skillnudge").joinpath(DEFAULT_CORPUS_RESOURCE)
+    with resources.as_file(resource) as path:
+        yield Path(path)
+
+
+@contextmanager
+def _bundled_manifest() -> Iterator[Path]:
+    resource = resources.files("skillnudge").joinpath(DEFAULT_MANIFEST_RESOURCE)
     with resources.as_file(resource) as path:
         yield Path(path)
 
@@ -148,11 +156,16 @@ def bootstrap_default_index(
     )
     database_path = target_dir / DEFAULT_DATABASE_NAME
     metadata_path = target_dir / DEFAULT_METADATA_NAME
-    with _bundled_corpus() as corpus_path:
+    with _bundled_corpus() as corpus_path, _bundled_manifest() as manifest_path:
         try:
             corpus_bytes = corpus_path.read_bytes()
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         except OSError as error:
             raise BootstrapError("DEFAULT_CORPUS_UNREADABLE") from error
+        except json.JSONDecodeError as error:
+            raise BootstrapError("DEFAULT_CORPUS_MANIFEST_INVALID") from error
+        if not isinstance(manifest, dict):
+            raise BootstrapError("DEFAULT_CORPUS_MANIFEST_INVALID")
         corpus_sha256 = hashlib.sha256(corpus_bytes).hexdigest()
         existing = _read_metadata(metadata_path)
         if not force and _current_metadata(
@@ -177,8 +190,9 @@ def bootstrap_default_index(
             "repository": "https://github.com/kaiykk/skillnudge",
             "corpus_version": DEFAULT_CORPUS_VERSION,
             "corpus_sha256": corpus_sha256,
+            "corpus_manifest": manifest,
             "license": "MIT",
-            "source": "bundled deterministic SkillNudge seed corpus",
+            "source": "bundled public Skill corpus with pinned provenance",
         }
         try:
             stats = build_index(

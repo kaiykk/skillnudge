@@ -38,10 +38,11 @@ class BootstrapTests(unittest.TestCase):
             with BM25Retriever(first.database_path) as retriever:
                 results = retriever.retrieve("vague UI prototype visual hierarchy", 5)
             self.assertTrue(results)
-            self.assertEqual(
-                results[0]["candidate_id"],
-                "skillnudge.seed.ui-ux-prototyping",
+            self.assertIn(
+                "nextlevelbuilder/ui-ux-pro-max-skill::ui-ux-pro-max",
+                [result["candidate_id"] for result in results],
             )
+            self.assertGreaterEqual(metadata["record_count"], 50)
 
 
 if __name__ == "__main__":

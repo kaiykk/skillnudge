@@ -1,7 +1,7 @@
 # Local Provider Configuration
 
-Checkpoint 2 live smoke tests use one OpenAI-compatible structured-output
-provider. Configure it in the local-only file:
+Phase 1 dogfood uses the official DeepSeek structured-output API. Configure it
+in the local-only file:
 
 ```text
 config/provider.local.env
@@ -10,9 +10,9 @@ config/provider.local.env
 The file is intentionally ignored by Git. Fill these values locally:
 
 ```dotenv
-SKILLNUDGE_MODEL=your-model-name
-SKILLNUDGE_MODEL_API_KEY=your-api-key
-SKILLNUDGE_MODEL_BASE_URL=https://api.openai.com/v1
+DEEPSEEK_API_KEY=your-deepseek-api-key
+SKILLNUDGE_MODEL=deepseek-flash
+SKILLNUDGE_MODEL_BASE_URL=https://api.deepseek.com
 SKILLNUDGE_MODEL_TIMEOUT_SECONDS=60
 SKILLNUDGE_MODEL_TEMPERATURE=0
 SKILLNUDGE_MODEL_TOP_P=1
@@ -21,14 +21,18 @@ SKILLNUDGE_MODEL_MAX_OUTPUT_TOKENS=1200
 SKILLNUDGE_MODEL_REASONING_EFFORT=
 ```
 
-`SKILLNUDGE_MODEL_BASE_URL` is optional when using the default OpenAI endpoint.
-Environment variables take precedence over the local file. The provider
-adapter reads this file with the standard library; no dotenv package is
-required. Optional sampling and output settings are recorded when configured;
-unsupported provider controls remain explicitly unknown. The adapter uses only
-`SKILLNUDGE_MODEL_API_KEY` for authentication;
-it never falls back to `OPENAI_API_KEY`, including when the configured base URL
-is a third-party OpenAI-compatible endpoint.
+`SKILLNUDGE_MODEL_BASE_URL` defaults to the official DeepSeek endpoint and
+should not include `/v1` for this project. Environment variables take
+precedence over the local file. The adapter reads this file with the standard
+library; no dotenv package is required. `DEEPSEEK_API_KEY` is the supported
+authentication variable. The legacy `SKILLNUDGE_MODEL_API_KEY` variable remains
+accepted only as a compatibility override and is not documented as the
+supported dogfood path.
+
+Every planning request uses JSON Output with `response_format.type=json_object`
+and explicitly sends `thinking.type=disabled`. The adapter persists only safe
+provider metadata such as provider identity, endpoint identity, requested and
+observed model names, and token usage. It never persists `reasoning_content`.
 
 Never put a real key in `provider.local.env.example`, source files, tests,
 review packets, chat messages, or committed files. Do not upload

@@ -28,6 +28,12 @@ SKILL_FIELDS = (
     "license",
     "updated_at",
     "source",
+    "source_path",
+    "source_revision",
+    "content_sha256",
+    "corpus_schema_version",
+    "category",
+    "indexed_text",
 )
 
 _TOKEN_RE = re.compile(r"[^\W_]+", re.UNICODE)
@@ -44,6 +50,12 @@ class SkillRecord:
     license: str | None = None
     updated_at: str | None = None
     source: str | None = None
+    source_path: str | None = None
+    source_revision: str | None = None
+    content_sha256: str | None = None
+    corpus_schema_version: str | None = None
+    category: str | None = None
+    indexed_text: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -181,6 +193,12 @@ def normalize_skill(
         license=_text(raw.get("license")),
         updated_at=_text(raw.get("updated_at")),
         source=_text(raw.get("source")),
+        source_path=_text(raw.get("source_path")),
+        source_revision=_text(raw.get("source_revision") or raw.get("revision")),
+        content_sha256=_text(raw.get("content_sha256")),
+        corpus_schema_version=_text(raw.get("corpus_schema_version")),
+        category=_text(raw.get("category")),
+        indexed_text=_text(raw.get("indexed_text")),
     )
     if override:
         allowed = {key: value for key, value in override.items() if key in SKILL_FIELDS}
@@ -237,6 +255,12 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             license TEXT,
             updated_at TEXT,
             source TEXT
+            ,source_path TEXT
+            ,source_revision TEXT
+            ,content_sha256 TEXT
+            ,corpus_schema_version TEXT
+            ,category TEXT
+            ,indexed_text TEXT
         );
 
         CREATE VIRTUAL TABLE skills_fts USING fts5(
@@ -299,9 +323,12 @@ def build_index(
                     """
                     INSERT OR REPLACE INTO skills
                     (candidate_id, name, description, body, repo, source_url,
-                     license, updated_at, source)
+                     license, updated_at, source, source_path, source_revision,
+                     content_sha256, corpus_schema_version, category, indexed_text)
                     VALUES (:candidate_id, :name, :description, :body, :repo,
-                            :source_url, :license, :updated_at, :source)
+                            :source_url, :license, :updated_at, :source,
+                            :source_path, :source_revision, :content_sha256,
+                            :corpus_schema_version, :category, :indexed_text)
                     """,
                     values,
                 )
@@ -391,7 +418,8 @@ class BM25Retriever:
         rows = self.connection.execute(
             f"""
             SELECT candidate_id, name, description, body, repo, source_url,
-                   license, updated_at, source
+                   license, updated_at, source, source_path, source_revision,
+                   content_sha256, corpus_schema_version, category, indexed_text
             FROM skills
             WHERE candidate_id IN ({placeholders})
             """,
@@ -410,7 +438,9 @@ class BM25Retriever:
             """
             SELECT skills.candidate_id, skills.name, skills.repo,
                    skills.source_url, skills.license, skills.updated_at,
-                   skills.source,
+                   skills.source, skills.source_path, skills.source_revision,
+                   skills.content_sha256, skills.corpus_schema_version,
+                   skills.category,
                    bm25(skills_fts) AS raw_bm25_score
             FROM skills_fts
             JOIN skills ON skills.candidate_id = skills_fts.candidate_id
@@ -430,6 +460,11 @@ class BM25Retriever:
                 "license": row["license"],
                 "updated_at": row["updated_at"],
                 "source": row["source"],
+                "source_path": row["source_path"],
+                "source_revision": row["source_revision"],
+                "content_sha256": row["content_sha256"],
+                "corpus_schema_version": row["corpus_schema_version"],
+                "category": row["category"],
                 "raw_bm25_score": float(row["raw_bm25_score"]),
             }
             for rank, row in enumerate(rows, start=1)
@@ -465,6 +500,11 @@ def fuse_ranked_results(
                     "license": result.get("license"),
                     "updated_at": result.get("updated_at"),
                     "source": result.get("source"),
+                    "source_path": result.get("source_path"),
+                    "source_revision": result.get("source_revision"),
+                    "content_sha256": result.get("content_sha256"),
+                    "corpus_schema_version": result.get("corpus_schema_version"),
+                    "category": result.get("category"),
                     "query_ranks": {},
                     "raw_bm25_scores": {},
                     "rrf_contributions": {},

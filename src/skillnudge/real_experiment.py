@@ -90,11 +90,14 @@ class CodingModelConfig:
     def from_environment(cls) -> "CodingModelConfig":
         local = _read_local_provider_env()
         model = os.environ.get("SKILLNUDGE_MODEL") or local.get("SKILLNUDGE_MODEL", "")
-        api_key = os.environ.get("SKILLNUDGE_MODEL_API_KEY") or local.get(
-            "SKILLNUDGE_MODEL_API_KEY", ""
+        api_key = (
+            os.environ.get("DEEPSEEK_API_KEY")
+            or local.get("DEEPSEEK_API_KEY", "")
+            or os.environ.get("SKILLNUDGE_MODEL_API_KEY")
+            or local.get("SKILLNUDGE_MODEL_API_KEY", "")
         )
         base_url = os.environ.get("SKILLNUDGE_MODEL_BASE_URL") or local.get(
-            "SKILLNUDGE_MODEL_BASE_URL", "https://api.openai.com/v1"
+            "SKILLNUDGE_MODEL_BASE_URL", "https://api.deepseek.com"
         )
         timeout = os.environ.get("SKILLNUDGE_MODEL_TIMEOUT_SECONDS") or local.get(
             "SKILLNUDGE_MODEL_TIMEOUT_SECONDS", str(DEFAULT_PROVIDER_TIMEOUT_SECONDS)
@@ -139,7 +142,11 @@ class CodingModelConfig:
             (parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", "")
         )
         return cls(
-            provider_name="openai-compatible",
+            provider_name=(
+                "deepseek"
+                if endpoint_identity == "https://api.deepseek.com"
+                else "openai-compatible"
+            ),
             endpoint_identity=endpoint_identity,
             model_name=model,
             model_revision=None,

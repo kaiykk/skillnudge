@@ -12,18 +12,33 @@ Final Advice in this Skill.
 
 When this Skill is explicitly invoked:
 
-1. Preserve the user's current task as the raw request.
-2. Send that request to the installed CLI through stdin:
+1. Check that the installed `skillnudge` command is available. If it is not,
+   report the bounded installation error and stop.
+2. Check that the default corpus/index is usable by running
+   `skillnudge bootstrap --json`. This is idempotent and does not require the
+   user to provide a database path. If it fails, report the bounded bootstrap
+   error and stop.
+3. Preserve the user's current task as the raw request. When the current
+   repository is available, derive only concise context such as the repository
+   name and current working stage from visible files or the request. Do not
+   invent context; an empty or unknown value is valid.
+4. Invoke the installed CLI with the raw request on standard input and pass
+   `--project-context` and `--current-stage` only when their values are known:
 
    ```bash
-   printf '%s' '<the current user task>' | skillnudge advise --stdin --trace
+   printf '%s' "$RAW_REQUEST" | skillnudge advise \
+     --stdin \
+     --project-context "$PROJECT_CONTEXT" \
+     --current-stage "$CURRENT_STAGE" \
+     --trace
    ```
 
-   Replace the placeholder with the actual current task. Prefer the stdin form
-   so shell quoting does not alter the request.
-3. Report the CLI's actual Final Advice, including `No additional capability
+   Use the host's structured argument or process API when available so neither
+   the request nor optional context is assembled through unsafe shell
+   interpolation. Omit an optional flag rather than passing a guessed value.
+5. Report the CLI's actual Final Advice, including `No additional capability
    appears necessary now.` when the runtime returns `no_intervention`.
-4. If the CLI fails, report the bounded error and do not invent a Skill
+6. If the CLI fails, report the bounded error and do not invent a Skill
    recommendation.
 
 This adapter is intentionally explicit for the Phase 1.1 dogfood milestone.

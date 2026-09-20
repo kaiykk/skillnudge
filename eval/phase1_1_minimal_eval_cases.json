@@ -1,0 +1,61 @@
+{
+  "schema_version": "skillnudge.phase1_1_minimal_eval_cases.v0",
+  "status": "frozen_before_execution",
+  "purpose": "Five small debugging cases for the first developer with/without Skill evaluation.",
+  "conditions": [
+    "control:no_skill",
+    "treatment:systematic-debugging-v6.4.1"
+  ],
+  "cases": [
+    {
+      "case_id": "eval-001-percent-discount",
+      "description": "Fix src/price.py. The public API receives a whole-number percentage, so percent=20 means a 20% discount. Preserve two-decimal currency rounding and boundary behavior. Do not change the public tests.",
+      "source_files": {
+        "src/price.py": "def apply_discount(amount, percent):\n    return round(amount - amount * percent, 2)\n",
+        "tests/test_public.py": "import unittest\n\nfrom src.price import apply_discount\n\n\nclass PublicTests(unittest.TestCase):\n    def test_whole_percentage(self):\n        self.assertEqual(apply_discount(100, 20), 80)\n\n    def test_zero_discount(self):\n        self.assertEqual(apply_discount(50, 0), 50)\n"
+      },
+      "target_test": "import os\nimport sys\nimport unittest\n\nsys.path.insert(0, os.environ['SKILLNUDGE_EVAL_WORKSPACE'])\nfrom src.price import apply_discount\n\n\nclass TargetTests(unittest.TestCase):\n    def test_decimal_currency_case(self):\n        self.assertEqual(apply_discount(19.99, 15), 16.99)\n",
+      "regression_test": "import os\nimport sys\nimport unittest\n\nsys.path.insert(0, os.environ['SKILLNUDGE_EVAL_WORKSPACE'])\nfrom src.price import apply_discount\n\n\nclass RegressionTests(unittest.TestCase):\n    def test_boundaries(self):\n        self.assertEqual(apply_discount(50, 0), 50)\n        self.assertEqual(apply_discount(50, 100), 0)\n"
+    },
+    {
+      "case_id": "eval-002-inclusive-range",
+      "description": "Fix src/ranges.py. The API's end argument is inclusive, so take([10,20,30], 0, 1) must include both positions 0 and 1. Preserve normal start behavior and do not change the public tests.",
+      "source_files": {
+        "src/ranges.py": "def take(items, start, end):\n    return items[start:end]\n",
+        "tests/test_public.py": "import unittest\n\nfrom src.ranges import take\n\n\nclass PublicTests(unittest.TestCase):\n    def test_inclusive_end(self):\n        self.assertEqual(take([10, 20, 30], 0, 1), [10, 20])\n\n    def test_middle(self):\n        self.assertEqual(take([1, 2, 3, 4], 1, 2), [2, 3])\n"
+      },
+      "target_test": "import os\nimport sys\nimport unittest\n\nsys.path.insert(0, os.environ['SKILLNUDGE_EVAL_WORKSPACE'])\nfrom src.ranges import take\n\n\nclass TargetTests(unittest.TestCase):\n    def test_last_element_is_included(self):\n        self.assertEqual(take([10, 20, 30], 1, 2), [20, 30])\n",
+      "regression_test": "import os\nimport sys\nimport unittest\n\nsys.path.insert(0, os.environ['SKILLNUDGE_EVAL_WORKSPACE'])\nfrom src.ranges import take\n\n\nclass RegressionTests(unittest.TestCase):\n    def test_single_element_range(self):\n        self.assertEqual(take([10, 20, 30], 2, 2), [30])\n"
+    },
+    {
+      "case_id": "eval-003-default-timeout",
+      "description": "Fix src/config.py. timeout_seconds(None) must use the documented default of 30 seconds, while an explicit value including zero must be preserved. Do not change the public tests.",
+      "source_files": {
+        "src/config.py": "def timeout_seconds(value=None):\n    return value or 0\n",
+        "tests/test_public.py": "import unittest\n\nfrom src.config import timeout_seconds\n\n\nclass PublicTests(unittest.TestCase):\n    def test_explicit_timeout(self):\n        self.assertEqual(timeout_seconds(12), 12)\n\n    def test_default_timeout(self):\n        self.assertEqual(timeout_seconds(None), 30)\n"
+      },
+      "target_test": "import os\nimport sys\nimport unittest\n\nsys.path.insert(0, os.environ['SKILLNUDGE_EVAL_WORKSPACE'])\nfrom src.config import timeout_seconds\n\n\nclass TargetTests(unittest.TestCase):\n    def test_zero_is_explicit(self):\n        self.assertEqual(timeout_seconds(0), 0)\n",
+      "regression_test": "import os\nimport sys\nimport unittest\n\nsys.path.insert(0, os.environ['SKILLNUDGE_EVAL_WORKSPACE'])\nfrom src.config import timeout_seconds\n\n\nclass RegressionTests(unittest.TestCase):\n    def test_default_and_positive_values(self):\n        self.assertEqual(timeout_seconds(None), 30)\n        self.assertEqual(timeout_seconds(5), 5)\n"
+    },
+    {
+      "case_id": "eval-004-parse-bool",
+      "description": "Fix src/flags.py. parse_bool must interpret the strings true and false case-insensitively, while preserving boolean inputs. Do not change the public tests.",
+      "source_files": {
+        "src/flags.py": "def parse_bool(value):\n    return bool(value)\n",
+        "tests/test_public.py": "import unittest\n\nfrom src.flags import parse_bool\n\n\nclass PublicTests(unittest.TestCase):\n    def test_true_string(self):\n        self.assertTrue(parse_bool('true'))\n\n    def test_boolean_false(self):\n        self.assertFalse(parse_bool(False))\n"
+      },
+      "target_test": "import os\nimport sys\nimport unittest\n\nsys.path.insert(0, os.environ['SKILLNUDGE_EVAL_WORKSPACE'])\nfrom src.flags import parse_bool\n\n\nclass TargetTests(unittest.TestCase):\n    def test_false_string(self):\n        self.assertFalse(parse_bool('false'))\n",
+      "regression_test": "import os\nimport sys\nimport unittest\n\nsys.path.insert(0, os.environ['SKILLNUDGE_EVAL_WORKSPACE'])\nfrom src.flags import parse_bool\n\n\nclass RegressionTests(unittest.TestCase):\n    def test_case_and_boolean_inputs(self):\n        self.assertTrue(parse_bool('TRUE'))\n        self.assertFalse(parse_bool(False))\n"
+    },
+    {
+      "case_id": "eval-005-normalize-email",
+      "description": "Fix src/email_utils.py. normalize_email must trim surrounding whitespace and normalize the address to lowercase. Preserve the local part and domain; do not change the public tests.",
+      "source_files": {
+        "src/email_utils.py": "def normalize_email(value):\n    return value.strip()\n",
+        "tests/test_public.py": "import unittest\n\nfrom src.email_utils import normalize_email\n\n\nclass PublicTests(unittest.TestCase):\n    def test_trim(self):\n        self.assertEqual(normalize_email(' user@example.com '), 'user@example.com')\n\n    def test_already_normalized(self):\n        self.assertEqual(normalize_email('a@example.com'), 'a@example.com')\n"
+      },
+      "target_test": "import os\nimport sys\nimport unittest\n\nsys.path.insert(0, os.environ['SKILLNUDGE_EVAL_WORKSPACE'])\nfrom src.email_utils import normalize_email\n\n\nclass TargetTests(unittest.TestCase):\n    def test_mixed_case(self):\n        self.assertEqual(normalize_email(' User@Example.COM '), 'user@example.com')\n",
+      "regression_test": "import os\nimport sys\nimport unittest\n\nsys.path.insert(0, os.environ['SKILLNUDGE_EVAL_WORKSPACE'])\nfrom src.email_utils import normalize_email\n\n\nclass RegressionTests(unittest.TestCase):\n    def test_trim_and_lowercase(self):\n        self.assertEqual(normalize_email(' A@EXAMPLE.COM '), 'a@example.com')\n"
+    }
+  ]
+}

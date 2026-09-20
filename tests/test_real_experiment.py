@@ -1,5 +1,6 @@
 import json
 import hashlib
+import os
 import sys
 import tempfile
 import unittest
@@ -134,6 +135,28 @@ class RealExperimentTests(unittest.TestCase):
         )
         rendered = json.dumps(config.as_dict())
         self.assertNotIn("secret-value", rendered)
+        self.assertNotIn("api_key", config.as_dict())
+
+    def test_coding_adapter_supports_official_deepseek_configuration(self):
+        from skillnudge import real_experiment
+
+        with (
+            mock.patch.object(
+                real_experiment,
+                "_read_local_provider_env",
+                return_value={
+                    "DEEPSEEK_API_KEY": "local-secret",
+                    "SKILLNUDGE_MODEL": "deepseek-flash",
+                    "SKILLNUDGE_MODEL_BASE_URL": "https://api.deepseek.com",
+                },
+            ),
+            mock.patch.dict(os.environ, {}, clear=True),
+        ):
+            config = CodingModelConfig.from_environment()
+
+        self.assertEqual(config.provider_name, "deepseek")
+        self.assertEqual(config.endpoint_identity, "https://api.deepseek.com")
+        self.assertEqual(config.model_name, "deepseek-flash")
         self.assertNotIn("api_key", config.as_dict())
 
     def test_provider_probe_records_supported_and_unsupported_parameters(self):

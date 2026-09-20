@@ -256,6 +256,7 @@ class PlanningRuntime:
                         "repair_attempt": repair_attempt,
                         "success": False,
                         "latency_ms": round((time.perf_counter() - started) * 1000, 2),
+                        "provider_metadata": self._safe_provider_metadata(),
                     },
                 )
                 trace.emit("error", stage, _error_details(error))
@@ -270,6 +271,7 @@ class PlanningRuntime:
                     "repair_attempt": repair_attempt,
                     "success": True,
                     "latency_ms": round((time.perf_counter() - started) * 1000, 2),
+                    "provider_metadata": self._safe_provider_metadata(),
                 },
             )
             invalid_response = response
@@ -299,6 +301,16 @@ class PlanningRuntime:
             trace.emit("stage_complete", stage, {"repair_attempt": repair_attempt})
             return validated
         raise AssertionError("unreachable")
+
+    def _safe_provider_metadata(self) -> dict[str, Any]:
+        metadata = getattr(self.model, "last_response_metadata", {})
+        if not isinstance(metadata, Mapping):
+            return {}
+        return {
+            key: value
+            for key, value in metadata.items()
+            if key in {"provider", "base_url", "requested_model", "observed_model", "usage"}
+        }
 
     @staticmethod
     def _derived_stage(
