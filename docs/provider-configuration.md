@@ -14,12 +14,19 @@ SKILLNUDGE_MODEL=your-model-name
 SKILLNUDGE_MODEL_API_KEY=your-api-key
 SKILLNUDGE_MODEL_BASE_URL=https://api.openai.com/v1
 SKILLNUDGE_MODEL_TIMEOUT_SECONDS=60
+SKILLNUDGE_MODEL_TEMPERATURE=0
+SKILLNUDGE_MODEL_TOP_P=1
+SKILLNUDGE_MODEL_SEED=
+SKILLNUDGE_MODEL_MAX_OUTPUT_TOKENS=1200
+SKILLNUDGE_MODEL_REASONING_EFFORT=
 ```
 
 `SKILLNUDGE_MODEL_BASE_URL` is optional when using the default OpenAI endpoint.
 Environment variables take precedence over the local file. The provider
 adapter reads this file with the standard library; no dotenv package is
-required. The adapter uses only `SKILLNUDGE_MODEL_API_KEY` for authentication;
+required. Optional sampling and output settings are recorded when configured;
+unsupported provider controls remain explicitly unknown. The adapter uses only
+`SKILLNUDGE_MODEL_API_KEY` for authentication;
 it never falls back to `OPENAI_API_KEY`, including when the configured base URL
 is a third-party OpenAI-compatible endpoint.
 
