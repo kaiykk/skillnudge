@@ -78,49 +78,53 @@ Hydration、Candidate Judgement / Final Advice 运行时，以及组合后的开
 
 ## 快速开始
 
-### Development Preview
-
-当前仓库提供直接运行的 Python 开发态 CLI，还不是打包后的终端用户命令。
+### 为 Codex 安装
 
 ```bash
 git clone https://github.com/kaiykk/skillnudge.git
 cd skillnudge
+./scripts/install_codex.sh
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+安装脚本会创建 `skillnudge` 命令，构建随包提供的 Phase 1 corpus 和
+SQLite/FTS5 index，并把显式 Codex Skill 安装到
+`$HOME/.agents/skills/skillnudge`。
+
+在 Codex 中打开任意无关仓库，然后调用：
+
+```text
+$skillnudge
+```
+
+这个 Skill 会把当前请求交给已安装的 Phase 1 runtime。结果可以是推荐、
+澄清、source error、insufficient evidence，或者：
+`No additional capability appears necessary now.` 默认 index 位于当前仓库
+之外，并由 installer bootstrap 的版本元数据管理。
+
+已安装 CLI 提供以下有限入口：
+
+```bash
+skillnudge --help
+skillnudge bootstrap
+skillnudge advise "我想做一个更好的 UI 原型，但不知道怎样描述自己的需求"
+```
+
+Phase 1 的 planning 和 judgement 需要通过 `SKILLNUDGE_MODEL_*` 环境变量配置
+OpenAI-compatible provider。请参阅
+[`docs/provider-configuration.md`](docs/provider-configuration.md) 了解 provider
+边界。不要提交或粘贴 provider 凭据。
+
+### 开发态测试
+
+```bash
 PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-要运行当前的本地检索 smoke path，请准备兼容的 Skill corpus：
+仓库也提供 clean-install 检查：
 
 ```bash
-PYTHONPATH=src python3 scripts/run_d001.py \
-  --corpus /path/to/corpus.json \
-  --run-dir runs/d001-checkpoint1
-```
-
-运行结果会写入 `runs/` 下的可复查产物。这是工程 smoke path，不是推荐质量
-benchmark。
-
-实时 planning 和 judgement 需要显式配置 OpenAI-compatible provider。请参阅
-[`docs/provider-configuration.md`](docs/provider-configuration.md) 中的本地配置
-说明。不要提交或粘贴 provider 凭据。
-
-使用本地 Checkpoint 1 SQLite index 运行组合后的 Phase 1 advisor：
-
-```bash
-PYTHONPATH=src python3 -m skillnudge advise \
-  "我想做一个更好的 UI 原型，但不知道怎样描述自己的需求" \
-  --database /path/to/skills.sqlite3 \
-  --trace
-```
-
-如果 Candidate Judgement 在部分候选完成后中断，可以从已有产物继续，不会重新
-运行 Planning 或 Retrieval：
-
-```bash
-PYTHONPATH=src python3 -m skillnudge advise \
-  "我想做一个更好的 UI 原型，但不知道怎样描述自己的需求" \
-  --resume \
-  --run-dir runs/<existing-run> \
-  --trace
+./scripts/smoke_install_codex.sh
 ```
 
 ## 示例场景
@@ -192,8 +196,6 @@ Capability Control Plane
 
 ### 尚未提供
 
-- 打包后的生产 CLI
-- 自动安装
 - Utility 评估与 Skill Utility Drift 检测
 - 能力演化
 - Review、Grow、Watch

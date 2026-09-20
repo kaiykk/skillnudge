@@ -1,0 +1,35 @@
+[
+  {
+    "candidate_id": "skillnudge.seed.ui-ux-prototyping",
+    "name": "UI/UX Prototyping Guidance",
+    "description": "A compact capability guide for turning vague visual intent into a concrete UI prototype through hierarchy, layout, component, and interaction decisions.",
+    "body": "Use this capability when a user wants a better-looking UI prototype but cannot name the design problem. Start by clarifying audience, task, and visual direction. Translate vague adjectives into observable decisions about information hierarchy, spacing, typography, color roles, component states, responsive behavior, and interaction flow. Compare a small number of directions before implementation, preserve the existing product shell when adapting an interface, and verify the result at the target viewport. This is procedural UI/UX prototyping guidance, not a component library or an automatic design generator.",
+    "repo": "kaiykk/skillnudge",
+    "source_url": "https://github.com/kaiykk/skillnudge",
+    "license": "MIT",
+    "updated_at": "2026-09-20",
+    "source": "SkillNudge bundled deterministic seed corpus"
+  },
+  {
+    "candidate_id": "skillnudge.seed.systematic-debugging",
+    "name": "Systematic Debugging Guidance",
+    "description": "A compact debugging procedure for reproducing failures, forming hypotheses, tracing causes, applying a minimal fix, and verifying regressions.",
+    "body": "Use this capability for a failing test or unclear software defect. Reproduce the failure, inspect the smallest relevant surface, state a falsifiable hypothesis, trace the data or control flow to the root cause, make the smallest correct change, and run targeted plus regression checks. Do not hide an environment failure behind a code change. Record what was verified and what remains uncertain.",
+    "repo": "kaiykk/skillnudge",
+    "source_url": "https://github.com/kaiykk/skillnudge",
+    "license": "MIT",
+    "updated_at": "2026-09-20",
+    "source": "SkillNudge bundled deterministic seed corpus"
+  },
+  {
+    "candidate_id": "skillnudge.seed.requirement-framing",
+    "name": "Requirement Framing Guidance",
+    "description": "A lightweight capability guide for converting an underspecified product request into explicit goals, constraints, acceptance criteria, and open questions.",
+    "body": "Use this capability when a request is ambiguous rather than technically blocked. Separate the desired outcome from implementation ideas, identify the user and decision being supported, record constraints and invariants, turn examples into acceptance criteria, and ask the smallest clarifying question when a missing fact changes the route. Keep unresolved assumptions visible instead of inventing requirements.",
+    "repo": "kaiykk/skillnudge",
+    "source_url": "https://github.com/kaiykk/skillnudge",
+    "license": "MIT",
+    "updated_at": "2026-09-20",
+    "source": "SkillNudge bundled deterministic seed corpus"
+  }
+]

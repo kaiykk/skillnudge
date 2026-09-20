@@ -352,7 +352,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="skillnudge")
     subparsers = parser.add_subparsers(dest="command", required=True)
     advise = subparsers.add_parser("advise", help="run the Phase 1 capability advisor")
-    advise.add_argument("request", help="raw user request")
+    advise.add_argument("request", nargs="?", help="raw user request")
+    advise.add_argument(
+        "--stdin",
+        action="store_true",
+        help="read the raw user request from standard input",
+    )
     advise.add_argument("--trace", action="store_true", help="show the local run artifact path")
     advise.add_argument("--run-dir", type=Path, help="explicit local artifact directory")
     advise.add_argument("--database", type=Path, help="local Checkpoint 1 SQLite index")
@@ -373,12 +378,20 @@ def main(argv: list[str] | None = None) -> int:
     if args.command != "advise":
         parser.error(f"unsupported command: {args.command}")
 
+    if args.request is None and not args.stdin:
+        parser.error("provide a request argument or use --stdin")
+    if args.request is not None and args.stdin:
+        parser.error("request argument and --stdin are mutually exclusive")
+    request = sys.stdin.read() if args.stdin else args.request
+    if not request or not request.strip():
+        parser.error("the raw user request must not be empty")
+
     if args.resume and args.run_dir is None:
         parser.error("--resume requires --run-dir")
     run_dir = args.run_dir or default_run_dir()
     database_path = args.database or default_database_path()
     envelope = InputEnvelope(
-        raw_request=args.request,
+        raw_request=request,
         project_context=args.project_context,
         current_stage=args.current_stage,
     )

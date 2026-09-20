@@ -1,0 +1,4 @@
+interface:
+  display_name: "SkillNudge"
+  short_description: "Decide whether the current task needs an external capability."
+  default_prompt: "Use $skillnudge to run the installed Phase 1 capability-intervention advisor for the current task."

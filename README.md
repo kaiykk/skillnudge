@@ -81,52 +81,53 @@ release-readiness validation is complete within the current Week 1 envelope.
 
 ## Quick Start
 
-### Development Preview
-
-The repository exposes a direct Python development CLI, not a packaged
-end-user console executable.
+### Install for Codex
 
 ```bash
 git clone https://github.com/kaiykk/skillnudge.git
 cd skillnudge
+./scripts/install_codex.sh
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+The installer creates the `skillnudge` command, builds the bundled Phase 1
+corpus into a per-user SQLite/FTS5 index, and installs the explicit Codex Skill
+at `$HOME/.agents/skills/skillnudge`.
+
+Open any unrelated repository in Codex and invoke:
+
+```text
+$skillnudge
+```
+
+The Skill passes the current request to the installed Phase 1 runtime. It can
+return a recommendation, clarification, source error, insufficient evidence,
+or `No additional capability appears necessary now.` The default index lives
+outside the current repository and is versioned by the installer bootstrap.
+
+The installed CLI also exposes the bounded commands:
+
+```bash
+skillnudge --help
+skillnudge bootstrap
+skillnudge advise "I want to build a better UI prototype but do not know how to describe it"
+```
+
+Phase 1 planning and judgement require an explicitly configured
+OpenAI-compatible provider through the `SKILLNUDGE_MODEL_*` environment
+variables. See [`docs/provider-configuration.md`](docs/provider-configuration.md)
+for the provider boundary. Never commit or paste provider credentials.
+
+### Development Tests
+
+```bash
 PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-To run the current local retrieval smoke path, provide a compatible Skill
-corpus:
+The repository also provides a clean-install check:
 
 ```bash
-PYTHONPATH=src python3 scripts/run_d001.py \
-  --corpus /path/to/corpus.json \
-  --run-dir runs/d001-checkpoint1
-```
-
-The run writes reviewable artifacts under `runs/`. It is an engineering smoke
-path, not a recommendation-quality benchmark.
-
-Live planning and judgement runs require an explicitly configured
-OpenAI-compatible provider. See
-[`docs/provider-configuration.md`](docs/provider-configuration.md) for the
-local-only configuration path. Never commit or paste provider credentials.
-
-To run the composed Phase 1 advisor against a local Checkpoint 1 SQLite index:
-
-```bash
-PYTHONPATH=src python3 -m skillnudge advise \
-  "I want to build a better UI prototype but do not know how to describe it" \
-  --database /path/to/skills.sqlite3 \
-  --trace
-```
-
-If Candidate Judgement is interrupted after some candidates complete, resume
-without rerunning Planning or Retrieval:
-
-```bash
-PYTHONPATH=src python3 -m skillnudge advise \
-  "I want to build a better UI prototype but do not know how to describe it" \
-  --resume \
-  --run-dir runs/<existing-run> \
-  --trace
+./scripts/smoke_install_codex.sh
 ```
 
 ## Example Use Case
@@ -198,8 +199,6 @@ not imply that evaluation or capability evolution is implemented today.
 
 ### Not yet
 
-- Packaged production CLI
-- Automatic installation
 - Utility evaluation and Skill Utility Drift detection
 - Capability evolution
 - Review, Grow, and Watch
