@@ -16,6 +16,7 @@ from skillnudge.experiment_runner import (
     SkillExposureRenderer,
     TaskArtifact,
     fixture_skill_payload,
+    write_pair_manifest,
 )
 
 
@@ -53,7 +54,10 @@ def main() -> int:
                 ("verification", {"kind": "target", "passed": True}),
             ),
         ),
-        renderer=SkillExposureRenderer(fixture_skill_payload()),
+        renderer=SkillExposureRenderer(
+            fixture_skill_payload(),
+            artifact_mode="synthetic_fixture",
+        ),
         model="fixture-model",
         harness_version="fixture-harness-v0",
         tool_manifest={
@@ -77,6 +81,7 @@ def main() -> int:
     )
 
     results = {}
+    run_results = {}
     for condition in (Condition.control(), Condition.treatment()):
         result = runner.run(
             task,
@@ -84,6 +89,7 @@ def main() -> int:
             condition=condition,
             run_dir=args.run_root / condition.name,
         )
+        run_results[condition.name] = result
         results[condition.name] = {
             "run_dir": result.run_dir,
             "condition": result.run.condition.as_dict(),
@@ -91,6 +97,18 @@ def main() -> int:
             "outcome_status": result.evidence.outcome.status,
         }
 
+    pair = write_pair_manifest(
+        args.run_root / "pair_manifest.json",
+        run_results["control"].run,
+        run_results["treatment"].run,
+        control_task=task,
+        treatment_task=task,
+    )
+    results["pair"] = {
+        "pair_manifest": str(args.run_root / "pair_manifest.json"),
+        "pair_status": pair.pair_status,
+        "errors": pair.errors,
+    }
     print(json.dumps(results, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
 

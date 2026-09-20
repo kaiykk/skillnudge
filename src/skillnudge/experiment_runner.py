@@ -28,6 +28,7 @@ from typing import Any, Callable, Mapping, Protocol, Sequence, runtime_checkable
 EXPERIMENT_RUN_SCHEMA = "experiment.run.v0"
 TRACE_EVENT_SCHEMA = "trace.event.experiment.v0"
 EVIDENCE_SCHEMA = "utility.evidence.experiment.v0"
+PAIR_MANIFEST_SCHEMA = "pair.manifest.experiment.v0"
 SYSTEMATIC_DEBUGGING_SKILL = "systematic-debugging-v6.4.1"
 FROZEN_SKILL_ARTIFACT_ID = "systematic-debugging-superpowers-v6.4.1-source-unit"
 FROZEN_SKILL_REPOSITORY = "https://github.com/obra/superpowers"
@@ -44,6 +45,30 @@ FROZEN_SKILL_MANIFEST_SHA256 = (
 SKILL_RENDERER_WRAPPER_REVISION = "skillnudge-fixed-context-v0"
 FIXTURE_HARNESS_VERSION = "fixture-harness-v0"
 FIXTURE_ORACLE_VERSION = "fixture-oracle-v0"
+TRACE_INSTRUMENTATION_ID = TRACE_EVENT_SCHEMA
+EVIDENCE_VALIDITIES = frozenset({"VALID", "INCONCLUSIVE", "PROTOCOL_FAILURE"})
+PAIR_STATUSES = frozenset({"VALID", "PROTOCOL_FAILURE"})
+ARTIFACT_VERIFICATION_MODES = frozenset(
+    {"none", "synthetic_fixture", "frozen_verified_artifact"}
+)
+
+DEFAULT_RETRY_POLICY = {
+    "transport_retry_limit": 0,
+    "tool_failure_retry_limit": 0,
+    "model_error_retry_limit": 0,
+    "task_level_retry_limit": 0,
+}
+DEFAULT_TERMINATION_POLICY = {
+    "stop_on_completion": True,
+    "stop_on_failure": True,
+    "budget_enforced": True,
+}
+DEFAULT_CONTROL_ARTIFACT_VERIFICATION = {
+    "mode": "none",
+    "verified": True,
+    "expected_manifest_sha256": None,
+    "actual_manifest_sha256": None,
+}
 
 SUPPORTED_SKILLS = frozenset({SYSTEMATIC_DEBUGGING_SKILL})
 SUPPORTED_TRACE_EVENTS = frozenset(
@@ -54,6 +79,7 @@ SUPPORTED_TRACE_EVENTS = frozenset(
         "test_execution",
         "patch_generated",
         "verification",
+        "oracle_evaluation",
         "failure",
         "completion",
     }
@@ -138,6 +164,76 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _as_execution_budget_dict(
+    value: "ExecutionBudget | Mapping[str, Any] | None",
+) -> dict[str, Any]:
+    if isinstance(value, ExecutionBudget):
+        return value.as_dict()
+    if value is None:
+        return {}
+    if not _is_mapping(value):
+        raise ExperimentSchemaError("ExecutionBudget", ["budget must be an object"])
+    return dict(value)
+
+
+def _as_execution_policy_dict(
+    value: "ExecutionPolicy | Mapping[str, Any] | None",
+) -> dict[str, Any]:
+    if isinstance(value, ExecutionPolicy):
+        return value.as_dict()
+    if value is None:
+        return ExecutionPolicy().as_dict()
+    if not _is_mapping(value):
+        raise ExperimentSchemaError("ExecutionPolicy", ["policy must be an object"])
+    return ExecutionPolicy.from_value(value).as_dict()
+
+
+@dataclass(frozen=True)
+class ExecutionPolicy:
+    """Minimal identity for retry and termination behavior."""
+
+    retry_policy: Mapping[str, Any] = field(
+        default_factory=lambda: dict(DEFAULT_RETRY_POLICY)
+    )
+    termination_policy: Mapping[str, Any] = field(
+        default_factory=lambda: dict(DEFAULT_TERMINATION_POLICY)
+    )
+
+    def __post_init__(self) -> None:
+        for name in ("retry_policy", "termination_policy"):
+            value = getattr(self, name)
+            if not _is_mapping(value):
+                raise ValueError(f"{name} must be an object")
+            _assert_observable_payload(value, f"execution_policy.{name}")
+            _assert_json_serializable(value, "ExecutionPolicy")
+
+    @classmethod
+    def from_value(cls, value: Any) -> "ExecutionPolicy":
+        if isinstance(value, cls):
+            return value
+        if not _is_mapping(value):
+            raise ExperimentSchemaError("ExecutionPolicy", ["policy must be an object"])
+        errors: list[str] = []
+        _unexpected(value, {"retry_policy", "termination_policy"}, errors)
+        retry_policy = value.get("retry_policy", DEFAULT_RETRY_POLICY)
+        termination_policy = value.get(
+            "termination_policy", DEFAULT_TERMINATION_POLICY
+        )
+        if not _is_mapping(retry_policy):
+            errors.append("retry_policy must be an object")
+        if not _is_mapping(termination_policy):
+            errors.append("termination_policy must be an object")
+        if errors:
+            raise ExperimentSchemaError("ExecutionPolicy", errors)
+        return cls(dict(retry_policy), dict(termination_policy))
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "retry_policy": dict(self.retry_policy),
+            "termination_policy": dict(self.termination_policy),
+        }
+
+
 @dataclass(frozen=True)
 class ExecutionBudget:
     """The bounded execution budget exposed by an Agent Adapter."""
@@ -176,6 +272,9 @@ class SkillExposure:
     manifest_hash: str | None
     visible_context: str
     file_paths: tuple[str, ...] = ()
+    artifact_verification: Mapping[str, Any] = field(
+        default_factory=lambda: dict(DEFAULT_CONTROL_ARTIFACT_VERIFICATION)
+    )
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -184,6 +283,7 @@ class SkillExposure:
             "payload_hash": self.payload_hash,
             "manifest_hash": self.manifest_hash,
             "file_paths": list(self.file_paths),
+            "artifact_verification": dict(self.artifact_verification),
         }
 
 
@@ -196,10 +296,24 @@ class SkillExposureRenderer:
         *,
         wrapper_revision: str = SKILL_RENDERER_WRAPPER_REVISION,
         expected_manifest_sha256: str | None = None,
+        artifact_mode: str = "synthetic_fixture",
     ):
         self.payload_files = dict(payload_files or {})
         self.wrapper_revision = wrapper_revision
         self.expected_manifest_sha256 = expected_manifest_sha256
+        self.artifact_mode = artifact_mode
+        if artifact_mode not in ARTIFACT_VERIFICATION_MODES - {"none"}:
+            raise ValueError(
+                "artifact_mode must be synthetic_fixture or "
+                "frozen_verified_artifact"
+            )
+        if (
+            artifact_mode == "frozen_verified_artifact"
+            and expected_manifest_sha256 is None
+        ):
+            raise ValueError(
+                "frozen_verified_artifact requires expected_manifest_sha256"
+            )
         extra_paths = sorted(set(self.payload_files) - set(FROZEN_SKILL_SOURCE_PATHS))
         missing_paths = [
             path for path in FROZEN_SKILL_SOURCE_PATHS if path not in self.payload_files
@@ -246,6 +360,7 @@ class SkillExposureRenderer:
                 payload_hash=None,
                 manifest_hash=None,
                 visible_context="",
+                artifact_verification=dict(DEFAULT_CONTROL_ARTIFACT_VERIFICATION),
             )
         if condition.skill != SYSTEMATIC_DEBUGGING_SKILL:
             raise ExperimentRunError(
@@ -273,6 +388,12 @@ class SkillExposureRenderer:
             sections.append("")
         visible_context = "\n".join(sections)
         payload_hash = hashlib.sha256(visible_context.encode("utf-8")).hexdigest()
+        artifact_verification = {
+            "mode": self.artifact_mode,
+            "verified": self.artifact_mode == "frozen_verified_artifact",
+            "expected_manifest_sha256": self.expected_manifest_sha256,
+            "actual_manifest_sha256": manifest_hash,
+        }
         return SkillExposure(
             skill_identity=FROZEN_SKILL_ARTIFACT_ID,
             skill_version=FROZEN_SKILL_VERSION,
@@ -280,6 +401,7 @@ class SkillExposureRenderer:
             manifest_hash=manifest_hash,
             visible_context=visible_context,
             file_paths=FROZEN_SKILL_SOURCE_PATHS,
+            artifact_verification=artifact_verification,
         )
 
 
@@ -298,6 +420,7 @@ class AgentExecutionContext:
     tool_manifest: Mapping[str, Any]
     execution_budget: Mapping[str, Any]
     environment_hash: str
+    execution_policy: Mapping[str, Any]
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -311,6 +434,7 @@ class AgentExecutionContext:
             "tool_manifest": dict(self.tool_manifest),
             "execution_budget": dict(self.execution_budget),
             "environment_hash": self.environment_hash,
+            "execution_policy": dict(self.execution_policy),
         }
 
 
@@ -424,8 +548,18 @@ class ExperimentRun:
     skill_payload_hash: str | None = None
     oracle_version: str = "unconfigured"
     execution_budget: Mapping[str, Any] = field(default_factory=dict)
+    execution_policy: Mapping[str, Any] = field(
+        default_factory=lambda: ExecutionPolicy().as_dict()
+    )
+    evaluator_config: Mapping[str, Any] = field(default_factory=dict)
+    trace_instrumentation: str = TRACE_INSTRUMENTATION_ID
+    artifact_verification: Mapping[str, Any] = field(
+        default_factory=lambda: dict(DEFAULT_CONTROL_ARTIFACT_VERIFICATION)
+    )
 
     def __post_init__(self) -> None:
+        normalized_policy = ExecutionPolicy.from_value(self.execution_policy).as_dict()
+        object.__setattr__(self, "execution_policy", normalized_policy)
         validate_experiment_run(self.as_dict())
 
     @classmethod
@@ -448,6 +582,19 @@ class ExperimentRun:
             skill_payload_hash=value.get("skill_payload_hash"),
             oracle_version=value.get("oracle_version", "unconfigured"),
             execution_budget=dict(value.get("execution_budget", {})),
+            execution_policy=dict(
+                value.get("execution_policy", ExecutionPolicy().as_dict())
+            ),
+            evaluator_config=dict(value.get("evaluator_config", {})),
+            trace_instrumentation=value.get(
+                "trace_instrumentation", TRACE_INSTRUMENTATION_ID
+            ),
+            artifact_verification=dict(
+                value.get(
+                    "artifact_verification",
+                    DEFAULT_CONTROL_ARTIFACT_VERIFICATION,
+                )
+            ),
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -468,6 +615,10 @@ class ExperimentRun:
             "skill_payload_hash": self.skill_payload_hash,
             "oracle_version": self.oracle_version,
             "execution_budget": dict(self.execution_budget),
+            "execution_policy": dict(self.execution_policy),
+            "evaluator_config": dict(self.evaluator_config),
+            "trace_instrumentation": self.trace_instrumentation,
+            "artifact_verification": dict(self.artifact_verification),
         }
 
 
@@ -492,6 +643,10 @@ def validate_experiment_run(value: Any) -> dict[str, Any]:
         "skill_payload_hash",
         "oracle_version",
         "execution_budget",
+        "execution_policy",
+        "evaluator_config",
+        "trace_instrumentation",
+        "artifact_verification",
     }
     _unexpected(value, allowed, errors)
     if value.get("schema_version") != EXPERIMENT_RUN_SCHEMA:
@@ -512,6 +667,18 @@ def validate_experiment_run(value: Any) -> dict[str, Any]:
         errors.append("tool_manifest must be an object")
     if not _is_mapping(value.get("execution_budget", {})):
         errors.append("execution_budget must be an object")
+    if not _is_mapping(value.get("execution_policy", {})):
+        errors.append("execution_policy must be an object")
+    if not _is_mapping(value.get("evaluator_config", {})):
+        errors.append("evaluator_config must be an object")
+    if not isinstance(
+        value.get("trace_instrumentation", TRACE_INSTRUMENTATION_ID), str
+    ) or not value.get("trace_instrumentation", TRACE_INSTRUMENTATION_ID).strip():
+        errors.append("trace_instrumentation must be a non-empty string")
+    if not _is_mapping(
+        value.get("artifact_verification", DEFAULT_CONTROL_ARTIFACT_VERIFICATION)
+    ):
+        errors.append("artifact_verification must be an object")
     skill_version = value.get("skill_version")
     if skill_version is not None and (
         not isinstance(skill_version, str) or skill_version not in SUPPORTED_SKILLS
@@ -544,8 +711,51 @@ def validate_experiment_run(value: Any) -> dict[str, Any]:
             errors.extend(error.errors)
     if errors:
         raise ExperimentSchemaError("ExperimentRun", errors)
+    try:
+        ExecutionPolicy.from_value(value.get("execution_policy", {}))
+    except (ExperimentSchemaError, ValueError) as error:
+        errors.extend(
+            getattr(error, "errors", [str(error)])
+        )
+    artifact_verification = value.get(
+        "artifact_verification", DEFAULT_CONTROL_ARTIFACT_VERIFICATION
+    )
+    if _is_mapping(artifact_verification):
+        mode = artifact_verification.get("mode")
+        if mode not in ARTIFACT_VERIFICATION_MODES:
+            errors.append("artifact_verification.mode is unsupported")
+        if not isinstance(artifact_verification.get("verified"), bool):
+            errors.append("artifact_verification.verified must be boolean")
+        for key in ("expected_manifest_sha256", "actual_manifest_sha256"):
+            hash_value = artifact_verification.get(key)
+            if hash_value is not None and (
+                not isinstance(hash_value, str) or not hash_value.strip()
+            ):
+                errors.append(
+                    f"artifact_verification.{key} must be null or a non-empty string"
+                )
+    if errors:
+        raise ExperimentSchemaError("ExperimentRun", errors)
     _assert_observable_payload(value["tool_manifest"], "tool_manifest")
+    _assert_observable_payload(value.get("execution_budget", {}), "execution_budget")
+    _assert_observable_payload(
+        value.get("execution_policy", {}), "execution_policy"
+    )
+    _assert_observable_payload(
+        value.get("evaluator_config", {}), "evaluator_config"
+    )
+    _assert_observable_payload(
+        value.get("artifact_verification", DEFAULT_CONTROL_ARTIFACT_VERIFICATION),
+        "artifact_verification",
+    )
     _assert_json_serializable(value["tool_manifest"], "ExperimentRun")
+    _assert_json_serializable(value.get("execution_budget", {}), "ExperimentRun")
+    _assert_json_serializable(value.get("execution_policy", {}), "ExperimentRun")
+    _assert_json_serializable(value.get("evaluator_config", {}), "ExperimentRun")
+    _assert_json_serializable(
+        value.get("artifact_verification", DEFAULT_CONTROL_ARTIFACT_VERIFICATION),
+        "ExperimentRun",
+    )
     return dict(value)
 
 
@@ -774,6 +984,9 @@ class OutcomeEvidence:
     regression: bool | None
     tests_passed: int | None
     diagnostics: list[str]
+    target_status: str
+    regression_status: str
+    evaluator_valid: bool | None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -782,6 +995,9 @@ class OutcomeEvidence:
             "regression": self.regression,
             "tests_passed": self.tests_passed,
             "diagnostics": list(self.diagnostics),
+            "target_status": self.target_status,
+            "regression_status": self.regression_status,
+            "evaluator_valid": self.evaluator_valid,
         }
 
 
@@ -824,6 +1040,7 @@ class UtilityEvidence:
     outcome: OutcomeEvidence
     trajectory: TrajectoryEvidence
     cost: CostEvidence
+    evidence_validity: str
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -835,6 +1052,7 @@ class UtilityEvidence:
             "outcome": self.outcome.as_dict(),
             "trajectory": self.trajectory.as_dict(),
             "cost": self.cost.as_dict(),
+            "evidence_validity": self.evidence_validity,
         }
 
 
@@ -851,6 +1069,7 @@ def validate_utility_evidence(value: Any) -> dict[str, Any]:
         "outcome",
         "trajectory",
         "cost",
+        "evidence_validity",
     }
     _unexpected(value, allowed, errors)
     if value.get("schema_version") != EVIDENCE_SCHEMA:
@@ -867,6 +1086,41 @@ def validate_utility_evidence(value: Any) -> dict[str, Any]:
     for section in ("outcome", "trajectory", "cost"):
         if not _is_mapping(value.get(section)):
             errors.append(f"{section} must be an object")
+    if value.get("evidence_validity") not in EVIDENCE_VALIDITIES:
+        errors.append(
+            f"evidence_validity must be one of {sorted(EVIDENCE_VALIDITIES)}"
+        )
+    outcome = value.get("outcome")
+    if _is_mapping(outcome):
+        if outcome.get("status") not in {
+            "success",
+            "failure",
+            "unknown",
+            "protocol_failure",
+        }:
+            errors.append("outcome.status is unsupported")
+        for key in ("target_status", "regression_status"):
+            if outcome.get(key) not in {"pass", "fail", "unknown"}:
+                errors.append(f"outcome.{key} must be pass, fail, or unknown")
+        if not isinstance(outcome.get("evaluator_valid"), (bool, type(None))):
+            errors.append("outcome.evaluator_valid must be true, false, or null")
+    if value.get("evidence_validity") == "VALID" and (
+        not _is_mapping(outcome) or outcome.get("evaluator_valid") is not True
+    ):
+        errors.append("VALID evidence requires evaluator_valid=true")
+    if value.get("evidence_validity") == "PROTOCOL_FAILURE" and (
+        not _is_mapping(outcome)
+        or outcome.get("evaluator_valid") is not False
+        or outcome.get("status") != "protocol_failure"
+    ):
+        errors.append(
+            "PROTOCOL_FAILURE evidence requires evaluator_valid=false and "
+            "protocol_failure outcome"
+        )
+    if value.get("evidence_validity") == "INCONCLUSIVE" and (
+        not _is_mapping(outcome) or outcome.get("status") != "unknown"
+    ):
+        errors.append("INCONCLUSIVE evidence requires unknown outcome")
     if errors:
         raise ExperimentSchemaError("UtilityEvidence", errors)
     return dict(value)
@@ -905,6 +1159,7 @@ class AgentAdapter(Protocol):
     tool_manifest: Mapping[str, Any]
     execution_budget: ExecutionBudget
     environment_hash: str
+    execution_policy: ExecutionPolicy
 
     def exposure_for(self, condition: Condition) -> SkillExposure:
         """Return the deterministic Skill exposure for a condition."""
@@ -929,6 +1184,7 @@ class FixtureAgentAdapter:
     tool_manifest: Mapping[str, Any]
     execution_budget: ExecutionBudget
     environment_hash: str
+    execution_policy: ExecutionPolicy = field(default_factory=ExecutionPolicy)
 
     def __post_init__(self) -> None:
         if not self.model.strip():
@@ -937,6 +1193,10 @@ class FixtureAgentAdapter:
             raise ValueError("harness_version must be a non-empty string")
         if not self.environment_hash.strip():
             raise ValueError("environment_hash must be a non-empty string")
+        if not isinstance(self.execution_budget, ExecutionBudget):
+            self.execution_budget = ExecutionBudget(**dict(self.execution_budget))
+        if not isinstance(self.execution_policy, ExecutionPolicy):
+            self.execution_policy = ExecutionPolicy.from_value(self.execution_policy)
         _assert_observable_payload(self.tool_manifest, "tool_manifest")
         _assert_json_serializable(self.tool_manifest, "AgentAdapter")
 
@@ -957,6 +1217,7 @@ class FixtureAgentAdapter:
             tool_manifest=dict(self.tool_manifest),
             execution_budget=self.execution_budget.as_dict(),
             environment_hash=self.environment_hash,
+            execution_policy=self.execution_policy.as_dict(),
         )
 
     def run(
@@ -1020,7 +1281,9 @@ class ExperimentRunner:
         tool_manifest: Mapping[str, Any] | None = None,
         execution_budget: ExecutionBudget | Mapping[str, Any] | None = None,
         environment_hash: str | None = None,
+        execution_policy: ExecutionPolicy | Mapping[str, Any] | None = None,
         oracle_version: str | None = None,
+        evaluator_config: Mapping[str, Any] | None = None,
         run_dir: str | Path,
         run_id: str | None = None,
     ) -> ExperimentResult:
@@ -1033,16 +1296,55 @@ class ExperimentRunner:
         if isinstance(self.agent, AgentAdapter):
             adapter_metadata = self.agent
             exposure = adapter_metadata.exposure_for(condition_artifact)
-            model = model or adapter_metadata.model
-            harness_version = harness_version or adapter_metadata.harness_version
-            tool_manifest = (
-                dict(tool_manifest)
-                if tool_manifest is not None
-                else dict(adapter_metadata.tool_manifest)
+            effective_budget = adapter_metadata.execution_budget.as_dict()
+            effective_policy = _as_execution_policy_dict(
+                adapter_metadata.execution_policy
             )
-            environment_hash = environment_hash or adapter_metadata.environment_hash
-            if execution_budget is None:
-                execution_budget = adapter_metadata.execution_budget
+            if model is not None and model != adapter_metadata.model:
+                raise ExperimentRunError(
+                    "model must match AgentAdapter effective configuration"
+                )
+            if (
+                harness_version is not None
+                and harness_version != adapter_metadata.harness_version
+            ):
+                raise ExperimentRunError(
+                    "harness_version must match AgentAdapter effective configuration"
+                )
+            if (
+                tool_manifest is not None
+                and dict(tool_manifest) != dict(adapter_metadata.tool_manifest)
+            ):
+                raise ExperimentRunError(
+                    "tool_manifest must match AgentAdapter effective configuration"
+                )
+            if (
+                environment_hash is not None
+                and environment_hash != adapter_metadata.environment_hash
+            ):
+                raise ExperimentRunError(
+                    "environment_hash must match AgentAdapter effective configuration"
+                )
+            if (
+                execution_budget is not None
+                and _as_execution_budget_dict(execution_budget) != effective_budget
+            ):
+                raise ExperimentRunError(
+                    "execution_budget must match AgentAdapter effective configuration"
+                )
+            if (
+                execution_policy is not None
+                and _as_execution_policy_dict(execution_policy) != effective_policy
+            ):
+                raise ExperimentRunError(
+                    "execution_policy must match AgentAdapter effective configuration"
+                )
+            model = adapter_metadata.model
+            harness_version = adapter_metadata.harness_version
+            tool_manifest = dict(adapter_metadata.tool_manifest)
+            environment_hash = adapter_metadata.environment_hash
+            execution_budget = effective_budget
+            execution_policy = effective_policy
             if skill_payload_hash is None:
                 skill_payload_hash = exposure.payload_hash
         if condition_artifact.skill is not None and exposure is None:
@@ -1064,14 +1366,24 @@ class ExperimentRunner:
         environment_hash = environment_hash or "unconfigured"
         if tool_manifest is None:
             tool_manifest = {}
-        if isinstance(execution_budget, ExecutionBudget):
-            execution_budget = execution_budget.as_dict()
-        elif execution_budget is None:
-            execution_budget = {}
-        else:
-            execution_budget = dict(execution_budget)
-        if oracle_version is None:
-            oracle_version = getattr(self.oracle, "oracle_version", "unconfigured")
+        execution_budget = _as_execution_budget_dict(execution_budget)
+        execution_policy = _as_execution_policy_dict(execution_policy)
+        effective_oracle_version = getattr(
+            self.oracle, "oracle_version", "unconfigured"
+        )
+        if oracle_version is not None and oracle_version != effective_oracle_version:
+            raise ExperimentRunError(
+                "oracle_version must match Oracle effective configuration"
+            )
+        oracle_version = effective_oracle_version
+        effective_evaluator_config = dict(
+            getattr(self.oracle, "evaluator_config", {}) or {}
+        )
+        if evaluator_config is not None and dict(evaluator_config) != effective_evaluator_config:
+            raise ExperimentRunError(
+                "evaluator_config must match Oracle effective configuration"
+            )
+        evaluator_config = effective_evaluator_config
         if skill_version is not None and skill_version != condition_artifact.skill:
             raise ExperimentRunError("skill_version must match condition.skill")
         if skill_version is None:
@@ -1100,6 +1412,14 @@ class ExperimentRunner:
             skill_payload_hash=skill_payload_hash,
             oracle_version=oracle_version,
             execution_budget=dict(execution_budget),
+            execution_policy=dict(execution_policy),
+            evaluator_config=dict(evaluator_config),
+            trace_instrumentation=TRACE_INSTRUMENTATION_ID,
+            artifact_verification=(
+                dict(exposure.artifact_verification)
+                if exposure is not None
+                else dict(DEFAULT_CONTROL_ARTIFACT_VERIFICATION)
+            ),
         )
         _write_json(output_dir / "experiment_run.json", run.as_dict())
         _write_json(output_dir / "run_manifest.json", run.as_dict())
@@ -1120,6 +1440,9 @@ class ExperimentRunner:
                     "skill_manifest_hash": run.skill_manifest_hash,
                     "skill_payload_hash": run.skill_payload_hash,
                     "execution_budget": dict(run.execution_budget),
+                    "execution_policy": dict(run.execution_policy),
+                    "artifact_verification": dict(run.artifact_verification),
+                    "trace_instrumentation": run.trace_instrumentation,
                 },
             )
             agent_result = self.agent.run(task_artifact, condition_artifact, trace)
@@ -1129,7 +1452,7 @@ class ExperimentRunner:
                 self.oracle.evaluate(task_artifact, agent_result.result)
             )
             trace.emit(
-                "verification",
+                "oracle_evaluation",
                 {
                     "source": "oracle",
                     "success": oracle_result.success,
@@ -1180,11 +1503,20 @@ class ExperimentRunner:
         *,
         measured_latency_ms: float,
     ) -> UtilityEvidence:
-        if oracle_result.success is True and oracle_result.regression is False:
+        if oracle_result.evaluator_valid is False:
+            evidence_validity = "PROTOCOL_FAILURE"
+            status = "protocol_failure"
+        elif oracle_result.evaluator_valid is None:
+            evidence_validity = "INCONCLUSIVE"
+            status = "unknown"
+        elif oracle_result.success is True and oracle_result.regression is False:
+            evidence_validity = "VALID"
             status = "success"
         elif oracle_result.success is False or oracle_result.regression is True:
+            evidence_validity = "VALID"
             status = "failure"
         else:
+            evidence_validity = "INCONCLUSIVE"
             status = "unknown"
         failure_categories: list[str] = []
         for event in events:
@@ -1209,6 +1541,9 @@ class ExperimentRunner:
                 regression=oracle_result.regression,
                 tests_passed=oracle_result.tests_passed,
                 diagnostics=list(oracle_result.diagnostics),
+                target_status=oracle_result.target_status or "unknown",
+                regression_status=oracle_result.regression_status or "unknown",
+                evaluator_valid=oracle_result.evaluator_valid,
             ),
             trajectory=TrajectoryEvidence(
                 steps=agent_result.steps,
@@ -1222,7 +1557,258 @@ class ExperimentRunner:
                 tokens=agent_result.tokens,
                 latency_ms=latency_ms,
             ),
+            evidence_validity=evidence_validity,
         )
+
+
+@dataclass(frozen=True)
+class PairValidationResult:
+    """Causal comparability result for exactly one Control/Treatment pair."""
+
+    experiment_id: str
+    task_id: str
+    control_run_id: str
+    treatment_run_id: str
+    shared_configuration_identity: str
+    pair_status: str
+    errors: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if self.pair_status not in PAIR_STATUSES:
+            raise ValueError(f"unsupported pair status: {self.pair_status}")
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": PAIR_MANIFEST_SCHEMA,
+            "experiment_id": self.experiment_id,
+            "task_id": self.task_id,
+            "control_run_id": self.control_run_id,
+            "treatment_run_id": self.treatment_run_id,
+            "shared_configuration_identity": self.shared_configuration_identity,
+            "pair_status": self.pair_status,
+            "errors": list(self.errors),
+            "expected_intervention_difference": {
+                "control": {
+                    "skill_payload": "absent",
+                    "condition": {"skill": None},
+                },
+                "treatment": {
+                    "skill_payload": "exact_declared_skill",
+                    "condition": {"skill": SYSTEMATIC_DEBUGGING_SKILL},
+                },
+            },
+        }
+
+
+def validate_pair_manifest(value: Any) -> dict[str, Any]:
+    """Validate the bounded pair artifact without interpreting utility."""
+
+    if not _is_mapping(value):
+        raise ExperimentSchemaError("PairManifest", ["pair manifest must be an object"])
+    errors: list[str] = []
+    allowed = {
+        "schema_version",
+        "experiment_id",
+        "task_id",
+        "control_run_id",
+        "treatment_run_id",
+        "shared_configuration_identity",
+        "pair_status",
+        "errors",
+        "expected_intervention_difference",
+    }
+    _unexpected(value, allowed, errors)
+    if value.get("schema_version") != PAIR_MANIFEST_SCHEMA:
+        errors.append(f"schema_version must be {PAIR_MANIFEST_SCHEMA}")
+    for key in (
+        "experiment_id",
+        "task_id",
+        "control_run_id",
+        "treatment_run_id",
+        "shared_configuration_identity",
+    ):
+        _required_string(value, key, errors)
+    if value.get("pair_status") not in PAIR_STATUSES:
+        errors.append(f"pair_status must be one of {sorted(PAIR_STATUSES)}")
+    if not isinstance(value.get("errors"), list) or any(
+        not isinstance(item, str) or not item.strip()
+        for item in value.get("errors", [])
+    ):
+        errors.append("errors must be a list of non-empty strings")
+    if not _is_mapping(value.get("expected_intervention_difference")):
+        errors.append("expected_intervention_difference must be an object")
+    if errors:
+        raise ExperimentSchemaError("PairManifest", errors)
+    _assert_observable_payload(value, "PairManifest")
+    _assert_json_serializable(value, "PairManifest")
+    return dict(value)
+
+
+def _pair_task(value: TaskArtifact | Mapping[str, Any] | None) -> TaskArtifact | None:
+    if value is None:
+        return None
+    if isinstance(value, TaskArtifact):
+        return value
+    return TaskArtifact.from_dict(value)
+
+
+def _configuration_identity(
+    run: ExperimentRun,
+    task: TaskArtifact | None,
+) -> str:
+    common = {
+        "experiment_id": run.experiment_id,
+        "task_id": run.task_id,
+        "task": task.as_dict() if task is not None else None,
+        "model": run.model,
+        "harness_version": run.harness_version,
+        "tool_manifest": dict(run.tool_manifest),
+        "environment_hash": run.environment_hash,
+        "execution_budget": dict(run.execution_budget),
+        "execution_policy": dict(run.execution_policy),
+        "oracle_version": run.oracle_version,
+        "evaluator_config": dict(run.evaluator_config),
+        "trace_instrumentation": run.trace_instrumentation,
+    }
+    canonical = json.dumps(common, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def validate_paired_runs(
+    control: ExperimentRun | Mapping[str, Any],
+    treatment: ExperimentRun | Mapping[str, Any],
+    *,
+    control_task: TaskArtifact | Mapping[str, Any] | None = None,
+    treatment_task: TaskArtifact | Mapping[str, Any] | None = None,
+) -> PairValidationResult:
+    """Validate causal parity without interpreting utility."""
+
+    control_run = (
+        control if isinstance(control, ExperimentRun) else ExperimentRun.from_dict(control)
+    )
+    treatment_run = (
+        treatment
+        if isinstance(treatment, ExperimentRun)
+        else ExperimentRun.from_dict(treatment)
+    )
+    control_task_artifact = _pair_task(control_task)
+    treatment_task_artifact = _pair_task(treatment_task)
+    errors: list[str] = []
+
+    common_fields = (
+        "experiment_id",
+        "task_id",
+        "model",
+        "harness_version",
+        "tool_manifest",
+        "environment_hash",
+        "execution_budget",
+        "execution_policy",
+        "oracle_version",
+        "evaluator_config",
+        "trace_instrumentation",
+    )
+    for field_name in common_fields:
+        control_value = getattr(control_run, field_name)
+        treatment_value = getattr(treatment_run, field_name)
+        if isinstance(control_value, Mapping):
+            control_value = dict(control_value)
+        if isinstance(treatment_value, Mapping):
+            treatment_value = dict(treatment_value)
+        if control_value != treatment_value:
+            errors.append(f"{field_name} mismatch")
+
+    if control_task_artifact is None or treatment_task_artifact is None:
+        errors.append(
+            "task artifact identity is required for paired validation"
+        )
+    elif control_task_artifact.as_dict() != treatment_task_artifact.as_dict():
+        errors.append("task artifact identity mismatch")
+
+    if control_run.condition.skill is not None:
+        errors.append("control condition must have no Skill")
+    if any(
+        value is not None
+        for value in (
+            control_run.skill_version,
+            control_run.skill_identity,
+            control_run.skill_manifest_hash,
+            control_run.skill_payload_hash,
+        )
+    ):
+        errors.append("control Skill payload metadata must be absent")
+    if dict(control_run.artifact_verification) != DEFAULT_CONTROL_ARTIFACT_VERIFICATION:
+        errors.append("control artifact verification must be mode none")
+
+    if treatment_run.condition.skill != SYSTEMATIC_DEBUGGING_SKILL:
+        errors.append("treatment condition must use the declared systematic debugging Skill")
+    if treatment_run.skill_version != SYSTEMATIC_DEBUGGING_SKILL:
+        errors.append("treatment skill_version must identify the declared Skill")
+    if treatment_run.skill_identity != FROZEN_SKILL_ARTIFACT_ID:
+        errors.append("treatment skill_identity must identify the frozen artifact")
+    for field_name in ("skill_manifest_hash", "skill_payload_hash"):
+        if not isinstance(getattr(treatment_run, field_name), str) or not getattr(
+            treatment_run, field_name
+        ):
+            errors.append(f"treatment {field_name} must be present")
+
+    artifact_verification = dict(treatment_run.artifact_verification)
+    artifact_mode = artifact_verification.get("mode")
+    if artifact_mode not in ARTIFACT_VERIFICATION_MODES - {"none"}:
+        errors.append("treatment artifact verification mode is not explicit")
+    elif artifact_mode == "synthetic_fixture":
+        if artifact_verification.get("verified") is not False:
+            errors.append("synthetic treatment must be marked verified=false")
+        if not artifact_verification.get("actual_manifest_sha256"):
+            errors.append("synthetic treatment must record actual manifest hash")
+    elif artifact_mode == "frozen_verified_artifact":
+        if artifact_verification.get("verified") is not True:
+            errors.append("frozen treatment must be marked verified=true")
+        if (
+            artifact_verification.get("expected_manifest_sha256")
+            != FROZEN_SKILL_MANIFEST_SHA256
+            or artifact_verification.get("actual_manifest_sha256")
+            != FROZEN_SKILL_MANIFEST_SHA256
+        ):
+            errors.append("frozen treatment manifest hash is not verified")
+    if (
+        treatment_run.skill_manifest_hash
+        != artifact_verification.get("actual_manifest_sha256")
+    ):
+        errors.append("treatment skill_manifest_hash must match actual manifest hash")
+
+    task_id = control_run.task_id
+    shared_identity = _configuration_identity(control_run, control_task_artifact)
+    status = "VALID" if not errors else "PROTOCOL_FAILURE"
+    return PairValidationResult(
+        experiment_id=control_run.experiment_id,
+        task_id=task_id,
+        control_run_id=control_run.run_id,
+        treatment_run_id=treatment_run.run_id,
+        shared_configuration_identity=shared_identity,
+        pair_status=status,
+        errors=errors,
+    )
+
+
+def write_pair_manifest(
+    path: str | Path,
+    control: ExperimentRun | Mapping[str, Any],
+    treatment: ExperimentRun | Mapping[str, Any],
+    *,
+    control_task: TaskArtifact | Mapping[str, Any] | None = None,
+    treatment_task: TaskArtifact | Mapping[str, Any] | None = None,
+) -> PairValidationResult:
+    result = validate_paired_runs(
+        control,
+        treatment,
+        control_task=control_task,
+        treatment_task=treatment_task,
+    )
+    artifact = result.as_dict()
+    validate_pair_manifest(artifact)
+    _write_json(Path(path), artifact)
+    return result
 
 
 @dataclass

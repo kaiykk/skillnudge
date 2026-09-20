@@ -2,6 +2,7 @@ import json
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 
@@ -11,6 +12,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from skillnudge.experiment_runner import (
     AgentExecutionContext,
     ExecutionBudget,
+    ExecutionPolicy,
     Condition,
     ExperimentRun,
     ExperimentRunError,
@@ -28,6 +30,8 @@ from skillnudge.experiment_runner import (
     FROZEN_SKILL_MANIFEST_SHA256,
     FROZEN_SKILL_SOURCE_PATHS,
     fixture_skill_payload,
+    validate_pair_manifest,
+    validate_paired_runs,
     validate_experiment_run,
     validate_trace_event,
     validate_utility_evidence,
@@ -101,6 +105,7 @@ class ExperimentRunnerTests(unittest.TestCase):
                     regression=False,
                     diagnostics=["target and regression checks passed"],
                     tests_passed=2,
+                    evaluator_valid=True,
                 )
             ),
         ).run(
@@ -113,6 +118,42 @@ class ExperimentRunnerTests(unittest.TestCase):
             tool_manifest={"filesystem": "isolated", "shell": "fixture"},
             run_dir=Path(root) / condition.name,
         )
+
+    def _paired_results(self, root: str):
+        agent = FixtureAgent(
+            result={"patch": "fixture patch"},
+            steps=2,
+            tokens=50,
+            latency_ms=5.0,
+            events=(("verification", {"kind": "target", "passed": True}),),
+        )
+        adapter = FixtureAgentAdapter(
+            execution_agent=agent,
+            renderer=SkillExposureRenderer(fixture_skill_payload()),
+            model="fixture-model",
+            harness_version="fixture-harness-v0",
+            tool_manifest={"filesystem": "isolated", "shell": "fixture"},
+            execution_budget=ExecutionBudget(max_steps=8, max_tool_calls=16),
+            environment_hash="fixture-environment-sha256",
+            execution_policy=ExecutionPolicy(
+                retry_policy={"transport_retry_limit": 1},
+                termination_policy={"stop_on_completion": True},
+            ),
+        )
+        runner = ExperimentRunner(adapter, FixtureOracle())
+        control = runner.run(
+            _task(),
+            experiment_id="paired-experiment-v0",
+            condition=Condition.control(),
+            run_dir=Path(root) / "control",
+        )
+        treatment = runner.run(
+            _task(),
+            experiment_id="paired-experiment-v0",
+            condition=Condition.treatment(),
+            run_dir=Path(root) / "treatment",
+        )
+        return control, treatment
 
     def test_control_run_persists_control_condition_and_outcome_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -140,6 +181,264 @@ class ExperimentRunnerTests(unittest.TestCase):
                 SYSTEMATIC_DEBUGGING_SKILL,
             )
 
+    def test_oracle_validity_is_preserved_and_invalid_evaluator_cannot_be_success(self):
+        with tempfile.TemporaryDirectory() as directory:
+            invalid = self._run(
+                directory,
+                Condition.control(),
+                oracle=OracleResult(
+                    success=True,
+                    regression=False,
+                    diagnostics=["evaluator crashed after producing a provisional result"],
+                    evaluator_valid=False,
+                ),
+            )
+            self.assertEqual(invalid.evidence.evidence_validity, "PROTOCOL_FAILURE")
+            self.assertEqual(invalid.evidence.outcome.status, "protocol_failure")
+            self.assertEqual(invalid.evidence.outcome.target_status, "pass")
+            self.assertEqual(invalid.evidence.outcome.regression_status, "pass")
+            self.assertFalse(invalid.evidence.outcome.evaluator_valid)
+
+            unknown = self._run(
+                directory,
+                Condition.treatment(),
+                oracle=OracleResult(
+                    success=None,
+                    regression=None,
+                    diagnostics=["evaluator state unavailable"],
+                    evaluator_valid=None,
+                ),
+            )
+            self.assertEqual(unknown.evidence.evidence_validity, "INCONCLUSIVE")
+            self.assertEqual(unknown.evidence.outcome.status, "unknown")
+
+    def test_oracle_evaluation_is_not_agent_verification(self):
+        with tempfile.TemporaryDirectory() as directory:
+            zero_agent = FixtureAgent(
+                result={"patch": "fixture"},
+                events=(),
+            )
+            zero_adapter = FixtureAgentAdapter(
+                execution_agent=zero_agent,
+                renderer=SkillExposureRenderer(fixture_skill_payload()),
+                model="fixture-model",
+                harness_version="fixture-harness-v0",
+                tool_manifest={"shell": "fixture"},
+                execution_budget=ExecutionBudget(),
+                environment_hash="env-sha256",
+            )
+            zero = ExperimentRunner(zero_adapter, FixtureOracle()).run(
+                _task(),
+                experiment_id="verification-boundary-v0",
+                condition=Condition.control(),
+                run_dir=Path(directory) / "zero",
+            )
+            self.assertEqual(zero.evidence.trajectory.verification_count, 0)
+            trace = (Path(zero.run_dir) / "trace.jsonl").read_text(encoding="utf-8")
+            self.assertEqual(trace.count('"event": "oracle_evaluation"'), 1)
+
+            two_agent = FixtureAgent(
+                result={"patch": "fixture"},
+                events=(
+                    ("verification", {"kind": "target", "passed": True}),
+                    ("verification", {"kind": "regression", "passed": True}),
+                ),
+            )
+            two_adapter = replace(zero_adapter, execution_agent=two_agent)
+            two = ExperimentRunner(two_adapter, FixtureOracle()).run(
+                _task(),
+                experiment_id="verification-boundary-v0",
+                condition=Condition.control(),
+                run_dir=Path(directory) / "two",
+            )
+            self.assertEqual(two.evidence.trajectory.verification_count, 2)
+
+    def test_adapter_is_the_authoritative_metadata_source(self):
+        mismatches = (
+            ("model", "different-model"),
+            ("harness_version", "different-harness"),
+            ("tool_manifest", {"shell": "different"}),
+            ("environment_hash", "different-environment"),
+            ("execution_budget", ExecutionBudget(max_steps=999)),
+            (
+                "execution_policy",
+                ExecutionPolicy(
+                    retry_policy={"transport_retry_limit": 99},
+                    termination_policy={"stop_on_completion": False},
+                ),
+            ),
+        )
+        for field_name, value in mismatches:
+            with self.subTest(field=field_name), tempfile.TemporaryDirectory() as directory:
+                adapter = FixtureAgentAdapter(
+                    execution_agent=FixtureAgent(),
+                    renderer=SkillExposureRenderer(fixture_skill_payload()),
+                    model="fixture-model",
+                    harness_version="fixture-harness-v0",
+                    tool_manifest={"shell": "fixture"},
+                    execution_budget=ExecutionBudget(max_steps=8),
+                    environment_hash="env-sha256",
+                    execution_policy=ExecutionPolicy(),
+                )
+                kwargs = {
+                    "model": "fixture-model",
+                    "harness_version": "fixture-harness-v0",
+                    "tool_manifest": {"shell": "fixture"},
+                    "execution_budget": ExecutionBudget(max_steps=8),
+                    "environment_hash": "env-sha256",
+                    "execution_policy": ExecutionPolicy(),
+                }
+                kwargs[field_name] = value
+                with self.assertRaisesRegex(
+                    ExperimentRunError, field_name
+                ):
+                    ExperimentRunner(adapter, FixtureOracle()).run(
+                        _task(),
+                        experiment_id="adapter-authority-v0",
+                        condition=Condition.control(),
+                        run_dir=Path(directory) / "run",
+                        **kwargs,
+                    )
+
+    def test_paired_fixture_is_valid_and_has_explicit_synthetic_treatment(self):
+        with tempfile.TemporaryDirectory() as directory:
+            control, treatment = self._paired_results(directory)
+            pair = validate_paired_runs(
+                control.run,
+                treatment.run,
+                control_task=_task(),
+                treatment_task=_task(),
+            )
+            self.assertEqual(pair.pair_status, "VALID")
+            self.assertEqual(pair.errors, [])
+            validate_pair_manifest(pair.as_dict())
+            self.assertEqual(
+                treatment.run.artifact_verification["mode"], "synthetic_fixture"
+            )
+            self.assertFalse(treatment.run.artifact_verification["verified"])
+            self.assertEqual(
+                control.run.artifact_verification["mode"], "none"
+            )
+
+    def test_pair_validator_rejects_each_load_bearing_mismatch(self):
+        mismatch_values = (
+            ("model", "other-model"),
+            ("harness_version", "other-harness"),
+            ("tool_manifest", {"shell": "other"}),
+            ("environment_hash", "other-environment"),
+            ("execution_budget", {"max_steps": 999}),
+            (
+                "execution_policy",
+                {
+                    "retry_policy": {"transport_retry_limit": 9},
+                    "termination_policy": {"stop_on_completion": True},
+                },
+            ),
+            ("oracle_version", "other-oracle"),
+            ("trace_instrumentation", "other-trace"),
+        )
+        for field_name, value in mismatch_values:
+            with self.subTest(field=field_name), tempfile.TemporaryDirectory() as directory:
+                control, treatment = self._paired_results(directory)
+                mutated = treatment.run.as_dict()
+                mutated[field_name] = value
+                result = validate_paired_runs(
+                    control.run.as_dict(),
+                    mutated,
+                    control_task=_task(),
+                    treatment_task=_task(),
+                )
+                self.assertEqual(result.pair_status, "PROTOCOL_FAILURE")
+                self.assertTrue(
+                    any(field_name in error for error in result.errors),
+                    result.errors,
+                )
+
+    def test_pair_validator_rejects_task_identity_and_missing_treatment_skill(self):
+        with tempfile.TemporaryDirectory() as directory:
+            control, treatment = self._paired_results(directory)
+            missing_task_identity = validate_paired_runs(control.run, treatment.run)
+            self.assertEqual(missing_task_identity.pair_status, "PROTOCOL_FAILURE")
+            self.assertIn(
+                "task artifact identity is required for paired validation",
+                missing_task_identity.errors,
+            )
+
+            different_task = TaskArtifact(
+                task_id="task-002",
+                repository="example/project",
+                commit="abc123",
+                test_command="python -m unittest",
+            )
+            result = validate_paired_runs(
+                control.run,
+                treatment.run,
+                control_task=_task(),
+                treatment_task=different_task,
+            )
+            self.assertEqual(result.pair_status, "PROTOCOL_FAILURE")
+            self.assertIn("task artifact identity mismatch", result.errors)
+
+            missing_skill = treatment.run.as_dict()
+            missing_skill.update(
+                {
+                    "condition": {"skill": None},
+                    "skill_version": None,
+                    "skill_identity": None,
+                    "skill_manifest_hash": None,
+                    "skill_payload_hash": None,
+                    "artifact_verification": {
+                        "mode": "none",
+                        "verified": True,
+                        "expected_manifest_sha256": None,
+                        "actual_manifest_sha256": None,
+                    },
+                }
+            )
+            result = validate_paired_runs(
+                control.run,
+                missing_skill,
+                control_task=_task(),
+                treatment_task=_task(),
+            )
+            self.assertEqual(result.pair_status, "PROTOCOL_FAILURE")
+            self.assertIn(
+                "treatment condition must use the declared systematic debugging Skill",
+                result.errors,
+            )
+
+    def test_frozen_artifact_mode_requires_verified_manifest_hash(self):
+        with self.assertRaises(ValueError):
+            SkillExposureRenderer(
+                fixture_skill_payload(),
+                artifact_mode="frozen_verified_artifact",
+            )
+        with self.assertRaises(ExperimentRunError):
+            SkillExposureRenderer(
+                fixture_skill_payload(),
+                artifact_mode="frozen_verified_artifact",
+                expected_manifest_sha256="wrong-hash",
+            ).render(Condition.treatment())
+
+    def test_pair_validator_rejects_wrong_verified_treatment_hash(self):
+        with tempfile.TemporaryDirectory() as directory:
+            control, treatment = self._paired_results(directory)
+            mutated = treatment.run.as_dict()
+            mutated["artifact_verification"] = {
+                "mode": "frozen_verified_artifact",
+                "verified": True,
+                "expected_manifest_sha256": "wrong-hash",
+                "actual_manifest_sha256": "wrong-hash",
+            }
+            result = validate_paired_runs(
+                control.run,
+                mutated,
+                control_task=_task(),
+                treatment_task=_task(),
+            )
+            self.assertEqual(result.pair_status, "PROTOCOL_FAILURE")
+            self.assertIn("frozen treatment manifest hash is not verified", result.errors)
+
     def test_trace_generation_allows_only_observable_events(self):
         with tempfile.TemporaryDirectory() as directory:
             trace_path = Path(directory) / "trace.jsonl"
@@ -166,15 +465,18 @@ class ExperimentRunnerTests(unittest.TestCase):
                     regression=True,
                     diagnostics=["regression detected"],
                     tests_passed=1,
+                    evaluator_valid=True,
                 ),
             )
 
             evidence = result.evidence.as_dict()
             self.assertEqual(evidence["outcome"]["status"], "failure")
+            self.assertEqual(evidence["evidence_validity"], "VALID")
+            self.assertTrue(evidence["outcome"]["evaluator_valid"])
             self.assertEqual(evidence["outcome"]["tests_passed"], 1)
             self.assertEqual(evidence["trajectory"]["steps"], 4)
             self.assertEqual(evidence["trajectory"]["tool_calls"], 1)
-            self.assertEqual(evidence["trajectory"]["verification_count"], 2)
+            self.assertEqual(evidence["trajectory"]["verification_count"], 1)
             self.assertEqual(evidence["cost"]["tokens"], 123)
             self.assertEqual(evidence["cost"]["latency_ms"], 45.5)
             self.assertNotIn("score", evidence)
@@ -274,6 +576,7 @@ class ExperimentRunnerTests(unittest.TestCase):
                         success=True,
                         regression=False,
                         diagnostics=["fixture"],
+                        evaluator_valid=True,
                     )
                 ),
             )
@@ -320,6 +623,9 @@ class ExperimentRunnerTests(unittest.TestCase):
         self.assertEqual(
             control_context.environment_hash, treatment_context.environment_hash
         )
+        self.assertEqual(
+            control_context.execution_policy, treatment_context.execution_policy
+        )
 
         with tempfile.TemporaryDirectory() as directory:
             runner = ExperimentRunner(
@@ -352,6 +658,8 @@ class ExperimentRunnerTests(unittest.TestCase):
                 "environment_hash",
                 "oracle_version",
                 "execution_budget",
+                "execution_policy",
+                "trace_instrumentation",
             ):
                 self.assertEqual(control_manifest[key], treatment_manifest[key])
             self.assertIsNone(control_manifest["skill_identity"])
