@@ -144,7 +144,36 @@ The source identity is the tag and peeled content commit. The
 is retained only because it was recorded in the earlier review and may help
 audit how that review established file provenance.
 
-### 2.3 Provenance-only files
+### 2.3 Canonicalization erratum recorded before execution
+
+The historical `previous_manifest_sha256` value
+`92dc8f44a0a729f72e32e1c000f0e37ad8cfb9cbd6346ed4ddbe92694ebe86eb` was
+recomputed against the pinned `v6.4.1` files on 2026-09-20. All four raw
+file SHA-256 values matched the file-level values above. The mismatch was
+therefore caused by manifest serialization, not by different source bytes.
+
+The runtime now uses the explicitly versioned canonicalization scheme:
+
+```yaml
+manifest_scheme: path-tab-sha256-prefix-v1
+serialization: "<ordered path><TAB>sha256:<raw file SHA-256>\\n"
+manifest_sha256: fdd07b9398e828b9ac6cd7194572cadd313e1478882f330f0f0d84fa1b60aea4
+```
+
+The previous value is preserved as superseded provenance evidence, not
+silently overwritten:
+
+```yaml
+historical_manifest_scheme: path-space-raw-digest-legacy
+historical_manifest_sha256: 92dc8f44a0a729f72e32e1c000f0e37ad8cfb9cbd6346ed4ddbe92694ebe86eb
+historical_status: superseded_canonicalization_evidence
+```
+
+This erratum changes only the identity calculation used to verify the same
+four pinned raw files. It does not change the selected source unit, payload
+contents, treatment boundary, or rendering order.
+
+### 2.4 Provenance-only files
 
 Some files may be inspected to establish provenance or licensing but are not
 part of the agent-visible treatment:

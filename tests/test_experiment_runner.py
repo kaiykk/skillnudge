@@ -354,6 +354,42 @@ class ExperimentRunnerTests(unittest.TestCase):
                     result.errors,
                 )
 
+    def test_pair_validator_rejects_observed_model_identity_mismatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            control, treatment = self._paired_results(directory)
+            control_mutated = control.run.as_dict()
+            control_mutated["observed_model_identity"] = {
+                "requested_model": "fixture-model",
+                "observed_model_ids": ["fixture-observed-model"],
+                "identity_consistent": True,
+                "responses": [
+                    {
+                        "response_index": 1,
+                        "observed_model_id": "fixture-observed-model",
+                    }
+                ],
+            }
+            mutated = treatment.run.as_dict()
+            mutated["observed_model_identity"] = {
+                "requested_model": "fixture-model",
+                "observed_model_ids": ["different-observed-model"],
+                "identity_consistent": True,
+                "responses": [
+                    {
+                        "response_index": 1,
+                        "observed_model_id": "different-observed-model",
+                    }
+                ],
+            }
+            result = validate_paired_runs(
+                control_mutated,
+                mutated,
+                control_task=_task(),
+                treatment_task=_task(),
+            )
+            self.assertEqual(result.pair_status, "PROTOCOL_FAILURE")
+            self.assertIn("observed model identity mismatch", result.errors)
+
     def test_pair_validator_rejects_task_identity_and_missing_treatment_skill(self):
         with tempfile.TemporaryDirectory() as directory:
             control, treatment = self._paired_results(directory)

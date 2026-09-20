@@ -19,7 +19,7 @@ import json
 import sys
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, Sequence, runtime_checkable
@@ -41,8 +41,27 @@ FROZEN_SKILL_SOURCE_PATHS = (
     "skills/systematic-debugging/defense-in-depth.md",
     "skills/systematic-debugging/condition-based-waiting.md",
 )
-FROZEN_SKILL_MANIFEST_SHA256 = (
+FROZEN_SKILL_FILE_SHA256 = {
+    "skills/systematic-debugging/SKILL.md": (
+        "808fc5717aa88ad65efff312b11c186294d3e6ee301afb584e2f86599b137787"
+    ),
+    "skills/systematic-debugging/root-cause-tracing.md": (
+        "75b933b6a8c40bdb2031b10f21654395b56ec6ab6bc7b018c18d3fe57aeb7fb8"
+    ),
+    "skills/systematic-debugging/defense-in-depth.md": (
+        "1e175fb86fc357e58c6aebf5441e481e1b7868b4380c0456b63a17eefbd18ba7"
+    ),
+    "skills/systematic-debugging/condition-based-waiting.md": (
+        "e89fec8400d6cd50f43407cec9fab50976ba4d55d0ec2eb51c0bd68036b54c26"
+    ),
+}
+FROZEN_SKILL_MANIFEST_SCHEME = "path-tab-sha256-prefix-v1"
+FROZEN_SKILL_HISTORICAL_MANIFEST_SCHEME = "path-space-raw-digest-legacy"
+FROZEN_SKILL_HISTORICAL_MANIFEST_SHA256 = (
     "92dc8f44a0a729f72e32e1c000f0e37ad8cfb9cbd6346ed4ddbe92694ebe86eb"
+)
+FROZEN_SKILL_MANIFEST_SHA256 = (
+    "fdd07b9398e828b9ac6cd7194572cadd313e1478882f330f0f0d84fa1b60aea4"
 )
 SKILL_RENDERER_WRAPPER_REVISION = "skillnudge-fixed-context-v0"
 FIXTURE_HARNESS_VERSION = "fixture-harness-v0"
@@ -71,6 +90,59 @@ DEFAULT_CONTROL_ARTIFACT_VERIFICATION = {
     "expected_manifest_sha256": None,
     "actual_manifest_sha256": None,
 }
+
+
+def canonical_skill_manifest_sha256(file_hashes: Mapping[str, str]) -> str:
+    """Hash the explicitly versioned ordered source-file manifest."""
+
+    if set(file_hashes) != set(FROZEN_SKILL_SOURCE_PATHS):
+        raise ValueError("file_hashes must contain exactly the frozen source paths")
+    records = [
+        f"{path}\tsha256:{file_hashes[path]}" for path in FROZEN_SKILL_SOURCE_PATHS
+    ]
+    canonical = "\n".join(records) + "\n"
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def unknown_observed_model_identity(requested_model: str) -> dict[str, Any]:
+    return {
+        "requested_model": requested_model,
+        "observed_model_ids": [],
+        "identity_consistent": None,
+        "responses": [],
+    }
+
+
+def observed_model_identity_from_result(
+    result: Any,
+    requested_model: str,
+) -> dict[str, Any]:
+    """Summarize only provider-returned model identity observations."""
+
+    observations = result.get("model_response_observations", []) if _is_mapping(result) else []
+    if not isinstance(observations, list):
+        observations = []
+    clean_observations = [
+        dict(item)
+        for item in observations
+        if isinstance(item, Mapping)
+    ]
+    observed_ids = sorted(
+        {
+            item["observed_model_id"]
+            for item in clean_observations
+            if isinstance(item.get("observed_model_id"), str)
+            and item["observed_model_id"].strip()
+        }
+    )
+    return {
+        "requested_model": requested_model,
+        "observed_model_ids": observed_ids,
+        "identity_consistent": (
+            len(observed_ids) <= 1 if clean_observations else None
+        ),
+        "responses": clean_observations,
+    }
 
 SUPPORTED_SKILLS = frozenset({SYSTEMATIC_DEBUGGING_SKILL})
 SUPPORTED_TRACE_EVENTS = frozenset(
@@ -355,14 +427,7 @@ class SkillExposureRenderer:
         return manifest_hash
 
     def manifest_hash(self) -> str:
-        records = []
-        for path in FROZEN_SKILL_SOURCE_PATHS:
-            digest = hashlib.sha256(
-                self._content_bytes(self.payload_files[path])
-            ).hexdigest()
-            records.append(f"{path}\tsha256:{digest}")
-        canonical = "\n".join(records) + "\n"
-        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        return canonical_skill_manifest_sha256(self.source_file_hashes())
 
     def source_file_hashes(self) -> dict[str, str]:
         return {
@@ -600,6 +665,69 @@ def validate_task_artifact(value: Any) -> dict[str, Any]:
 
 
 @dataclass(frozen=True)
+class AgentVisibleTask:
+    """Task data that may cross the Agent boundary."""
+
+    task_id: str
+    repository: str
+    commit: str
+    description: str
+    visible_test_command: str
+    environment_metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_task(cls, task: TaskArtifact) -> "AgentVisibleTask":
+        return cls(
+            task_id=task.task_id,
+            repository=task.repository,
+            commit=task.commit,
+            description=task.description,
+            visible_test_command=task.visible_test_command or task.test_command,
+            environment_metadata=(
+                {"environment_identity": task.environment_identity}
+                if task.environment_identity is not None
+                else {}
+            ),
+        )
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "task_id": self.task_id,
+            "repository": self.repository,
+            "commit": self.commit,
+            "description": self.description,
+            "visible_test_command": self.visible_test_command,
+            "environment_metadata": dict(self.environment_metadata),
+        }
+
+
+@dataclass(frozen=True)
+class OracleArtifact:
+    """Evaluator-only data that must not cross the Agent boundary."""
+
+    task_id: str
+    target_command: str | None
+    regression_command: str | None
+    evaluator_config: Mapping[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_task(cls, task: TaskArtifact) -> "OracleArtifact":
+        return cls(
+            task_id=task.task_id,
+            target_command=task.oracle_target_command,
+            regression_command=task.oracle_regression_command,
+        )
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "task_id": self.task_id,
+            "target_command": self.target_command,
+            "regression_command": self.regression_command,
+            "evaluator_config": dict(self.evaluator_config),
+        }
+
+
+@dataclass(frozen=True)
 class ExperimentRun:
     """Identity and frozen execution metadata for one condition run."""
 
@@ -627,6 +755,7 @@ class ExperimentRun:
     artifact_verification: Mapping[str, Any] = field(
         default_factory=lambda: dict(DEFAULT_CONTROL_ARTIFACT_VERIFICATION)
     )
+    observed_model_identity: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         normalized_policy = ExecutionPolicy.from_value(self.execution_policy).as_dict()
@@ -667,6 +796,7 @@ class ExperimentRun:
                     DEFAULT_CONTROL_ARTIFACT_VERIFICATION,
                 )
             ),
+            observed_model_identity=dict(value.get("observed_model_identity", {})),
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -692,6 +822,7 @@ class ExperimentRun:
             "evaluator_config": dict(self.evaluator_config),
             "trace_instrumentation": self.trace_instrumentation,
             "artifact_verification": dict(self.artifact_verification),
+            "observed_model_identity": dict(self.observed_model_identity),
         }
 
 
@@ -721,6 +852,7 @@ def validate_experiment_run(value: Any) -> dict[str, Any]:
         "evaluator_config",
         "trace_instrumentation",
         "artifact_verification",
+        "observed_model_identity",
     }
     _unexpected(value, allowed, errors)
     if value.get("schema_version") != EXPERIMENT_RUN_SCHEMA:
@@ -755,6 +887,8 @@ def validate_experiment_run(value: Any) -> dict[str, Any]:
         value.get("artifact_verification", DEFAULT_CONTROL_ARTIFACT_VERIFICATION)
     ):
         errors.append("artifact_verification must be an object")
+    if not _is_mapping(value.get("observed_model_identity", {})):
+        errors.append("observed_model_identity must be an object")
     skill_version = value.get("skill_version")
     if skill_version is not None and (
         not isinstance(skill_version, str) or skill_version not in SUPPORTED_SKILLS
@@ -825,6 +959,10 @@ def validate_experiment_run(value: Any) -> dict[str, Any]:
         value.get("artifact_verification", DEFAULT_CONTROL_ARTIFACT_VERIFICATION),
         "artifact_verification",
     )
+    _assert_observable_payload(
+        value.get("observed_model_identity", {}),
+        "observed_model_identity",
+    )
     _assert_json_serializable(value["tool_manifest"], "ExperimentRun")
     _assert_json_serializable(value.get("execution_budget", {}), "ExperimentRun")
     _assert_json_serializable(value.get("execution_policy", {}), "ExperimentRun")
@@ -832,6 +970,10 @@ def validate_experiment_run(value: Any) -> dict[str, Any]:
     _assert_json_serializable(value.get("evaluator_config", {}), "ExperimentRun")
     _assert_json_serializable(
         value.get("artifact_verification", DEFAULT_CONTROL_ARTIFACT_VERIFICATION),
+        "ExperimentRun",
+    )
+    _assert_json_serializable(
+        value.get("observed_model_identity", {}),
         "ExperimentRun",
     )
     return dict(value)
@@ -1227,7 +1369,7 @@ class Agent(Protocol):
 
     def run(
         self,
-        task: TaskArtifact,
+        task: AgentVisibleTask,
         condition: Condition,
         trace: TraceRecorder,
     ) -> AgentResult:
@@ -1239,7 +1381,7 @@ class ExecutionAgent(Protocol):
 
     def run(
         self,
-        task: TaskArtifact,
+        task: AgentVisibleTask,
         context: AgentExecutionContext,
         trace: TraceRecorder,
     ) -> AgentResult:
@@ -1263,7 +1405,7 @@ class AgentAdapter(Protocol):
 
     def run(
         self,
-        task: TaskArtifact,
+        task: AgentVisibleTask,
         condition: Condition,
         trace: TraceRecorder,
     ) -> AgentResult:
@@ -1335,7 +1477,7 @@ class Oracle(Protocol):
 
     oracle_version: str
 
-    def evaluate(self, task: TaskArtifact, result: Any) -> OracleResult:
+    def evaluate(self, task: OracleArtifact, result: Any) -> OracleResult:
         """Return success, regression, diagnostics, and optional test counts."""
 
 
@@ -1391,6 +1533,8 @@ class ExperimentRunner:
         task_artifact = (
             task if isinstance(task, TaskArtifact) else TaskArtifact.from_dict(task)
         )
+        visible_task = AgentVisibleTask.from_task(task_artifact)
+        oracle_artifact = OracleArtifact.from_task(task_artifact)
         condition_artifact = Condition.from_value(condition)
         adapter_metadata: AgentAdapter | None = None
         exposure: SkillExposure | None = None
@@ -1534,10 +1678,11 @@ class ExperimentRunner:
                 if exposure is not None
                 else dict(DEFAULT_CONTROL_ARTIFACT_VERIFICATION)
             ),
+            observed_model_identity=unknown_observed_model_identity(model),
         )
         _write_json(output_dir / "experiment_run.json", run.as_dict())
         _write_json(output_dir / "run_manifest.json", run.as_dict())
-        _write_json(output_dir / "task.json", task_artifact.as_dict())
+        _write_json(output_dir / "task.json", visible_task.as_dict())
 
         trace = TraceRecorder(output_dir / "trace.jsonl", run.run_id)
         started = time.perf_counter()
@@ -1560,11 +1705,20 @@ class ExperimentRunner:
                     "trace_instrumentation": run.trace_instrumentation,
                 },
             )
-            agent_result = self.agent.run(task_artifact, condition_artifact, trace)
+            agent_result = self.agent.run(visible_task, condition_artifact, trace)
             if not isinstance(agent_result, AgentResult):
                 raise ExperimentRunError("agent must return AgentResult")
+            run = replace(
+                run,
+                observed_model_identity=observed_model_identity_from_result(
+                    agent_result.result,
+                    run.model,
+                ),
+            )
+            _write_json(output_dir / "experiment_run.json", run.as_dict())
+            _write_json(output_dir / "run_manifest.json", run.as_dict())
             oracle_result = OracleResult.from_value(
-                self.oracle.evaluate(task_artifact, agent_result.result)
+                self.oracle.evaluate(oracle_artifact, agent_result.result)
             )
             trace.emit(
                 "oracle_evaluation",
@@ -1690,6 +1844,8 @@ class PairValidationResult:
     shared_configuration_identity: str
     pair_status: str
     errors: list[str] = field(default_factory=list)
+    control_observed_model_identity: Mapping[str, Any] = field(default_factory=dict)
+    treatment_observed_model_identity: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.pair_status not in PAIR_STATUSES:
@@ -1705,6 +1861,10 @@ class PairValidationResult:
             "shared_configuration_identity": self.shared_configuration_identity,
             "pair_status": self.pair_status,
             "errors": list(self.errors),
+            "observed_model_identity": {
+                "control": dict(self.control_observed_model_identity),
+                "treatment": dict(self.treatment_observed_model_identity),
+            },
             "expected_intervention_difference": {
                 "control": {
                     "skill_payload": "absent",
@@ -1733,6 +1893,7 @@ def validate_pair_manifest(value: Any) -> dict[str, Any]:
         "shared_configuration_identity",
         "pair_status",
         "errors",
+        "observed_model_identity",
         "expected_intervention_difference",
     }
     _unexpected(value, allowed, errors)
@@ -1753,6 +1914,14 @@ def validate_pair_manifest(value: Any) -> dict[str, Any]:
         for item in value.get("errors", [])
     ):
         errors.append("errors must be a list of non-empty strings")
+    observed_identity = value.get("observed_model_identity")
+    if not _is_mapping(observed_identity):
+        errors.append("observed_model_identity must be an object")
+    elif not all(
+        _is_mapping(observed_identity.get(key))
+        for key in ("control", "treatment")
+    ):
+        errors.append("observed_model_identity must contain control and treatment objects")
     if not _is_mapping(value.get("expected_intervention_difference")):
         errors.append("expected_intervention_difference must be an object")
     if errors:
@@ -1838,6 +2007,25 @@ def validate_paired_runs(
         if control_value != treatment_value:
             errors.append(f"{field_name} mismatch")
 
+    control_observed = dict(control_run.observed_model_identity)
+    treatment_observed = dict(treatment_run.observed_model_identity)
+    if control_observed.get("identity_consistent") is False:
+        errors.append("control observed model identity changed within run")
+    if treatment_observed.get("identity_consistent") is False:
+        errors.append("treatment observed model identity changed within run")
+    control_ids = {
+        value
+        for value in control_observed.get("observed_model_ids", [])
+        if isinstance(value, str) and value.strip()
+    }
+    treatment_ids = {
+        value
+        for value in treatment_observed.get("observed_model_ids", [])
+        if isinstance(value, str) and value.strip()
+    }
+    if control_ids and treatment_ids and control_ids != treatment_ids:
+        errors.append("observed model identity mismatch")
+
     if control_task_artifact is None or treatment_task_artifact is None:
         errors.append(
             "task artifact identity is required for paired validation"
@@ -1908,6 +2096,8 @@ def validate_paired_runs(
         shared_configuration_identity=shared_identity,
         pair_status=status,
         errors=errors,
+        control_observed_model_identity=control_observed,
+        treatment_observed_model_identity=treatment_observed,
     )
 
 

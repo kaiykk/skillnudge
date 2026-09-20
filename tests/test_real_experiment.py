@@ -1,34 +1,51 @@
 import json
+import hashlib
 import sys
 import tempfile
 import unittest
+from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "scripts"))
+
+import run_real_readiness_pair  # noqa: E402
 
 from skillnudge.experiment_runner import (  # noqa: E402
+    AgentVisibleTask,
     Condition,
     ExecutionBudget,
     ExecutionPolicy,
+    ExperimentRunner,
+    OracleArtifact,
     SkillExposureRenderer,
     TaskArtifact,
     TraceRecorder,
+    FROZEN_SKILL_FILE_SHA256,
+    FROZEN_SKILL_HISTORICAL_MANIFEST_SHA256,
+    FROZEN_SKILL_MANIFEST_SHA256,
+    canonical_skill_manifest_sha256,
     fixture_skill_payload,
 )
 from skillnudge.real_experiment import (  # noqa: E402
     CodingModelConfig,
     ModelResponse,
+    ProviderCapabilityProbe,
     REAL_HARNESS_VERSION,
     ReadinessWorkspaceOracle,
     RealCodingAgentAdapter,
     WorkspaceToolError,
     WorkspaceToolExecutor,
     create_readiness_task_bundle,
+    compare_frozen_skill_provenance,
     default_tool_manifest,
     environment_identity,
     fetch_frozen_skill_artifact,
+    probe_provider_capabilities,
 )
 
 
@@ -74,6 +91,31 @@ def _adapter(model, workspace, *, budget=None):
 
 
 class RealExperimentTests(unittest.TestCase):
+    def test_provenance_distinguishes_raw_hashes_from_manifest_serialization(self):
+        canonical = canonical_skill_manifest_sha256(FROZEN_SKILL_FILE_SHA256)
+        legacy_payload = "".join(
+            f"{path} {FROZEN_SKILL_FILE_SHA256[path]}\n"
+            for path in FROZEN_SKILL_FILE_SHA256
+        )
+        legacy = hashlib.sha256(legacy_payload.encode("utf-8")).hexdigest()
+
+        self.assertEqual(canonical, FROZEN_SKILL_MANIFEST_SHA256)
+        self.assertEqual(legacy, FROZEN_SKILL_HISTORICAL_MANIFEST_SHA256)
+        self.assertNotEqual(canonical, legacy)
+        comparison = compare_frozen_skill_provenance(FROZEN_SKILL_FILE_SHA256)
+        self.assertTrue(comparison["file_hashes_match"])
+        self.assertTrue(comparison["verified"])
+        self.assertEqual(comparison["mismatched_paths"], [])
+
+    def test_provenance_one_raw_file_mismatch_blocks(self):
+        altered = dict(FROZEN_SKILL_FILE_SHA256)
+        path = next(iter(altered))
+        altered[path] = "0" * 64
+        comparison = compare_frozen_skill_provenance(altered)
+        self.assertFalse(comparison["file_hashes_match"])
+        self.assertFalse(comparison["verified"])
+        self.assertEqual(comparison["mismatched_paths"], [path])
+
     def test_provider_metadata_omits_credentials(self):
         config = CodingModelConfig(
             provider_name="third-party-openai-compatible",
@@ -93,6 +135,191 @@ class RealExperimentTests(unittest.TestCase):
         rendered = json.dumps(config.as_dict())
         self.assertNotIn("secret-value", rendered)
         self.assertNotIn("api_key", config.as_dict())
+
+    def test_provider_probe_records_supported_and_unsupported_parameters(self):
+        class Response:
+            status = 200
+
+            def __init__(self, payload):
+                self.payload = payload
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, traceback):
+                return False
+
+            def read(self):
+                return json.dumps(self.payload).encode("utf-8")
+
+        config = CodingModelConfig(
+            provider_name="third-party-openai-compatible",
+            endpoint_identity="https://example.test/v1",
+            model_name="coding-model",
+            model_revision=None,
+            temperature=0.0,
+            top_p=1.0,
+            seed=None,
+            seed_support="unknown",
+            reasoning_configuration=None,
+            max_output_tokens=100,
+            timeout_seconds=10,
+            retry_policy={},
+            api_key="secret-value",
+        )
+
+        def fake_urlopen(request, timeout):
+            body = json.loads(request.data.decode("utf-8"))
+            if "seed" in body:
+                raise urllib.error.HTTPError(
+                    request.full_url,
+                    400,
+                    "bad request",
+                    {},
+                    BytesIO(b'{"error":"unknown parameter seed"}'),
+                )
+            return Response(
+                {
+                    "model": "observed-coding-model-2026-09",
+                    "choices": [
+                        {
+                            "message": {
+                                "content": '{"type":"final","summary":"probe"}'
+                            }
+                        }
+                    ],
+                }
+            )
+
+        import urllib.error
+        import urllib.request
+
+        with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            probe = probe_provider_capabilities(config)
+
+        self.assertEqual(probe.status, "PASS")
+        self.assertEqual(probe.parameter_support["seed"], "unsupported")
+        self.assertEqual(probe.parameter_support["response_format"], "supported")
+        self.assertEqual(
+            probe.observed_model_ids,
+            ("observed-coding-model-2026-09",),
+        )
+        serialized = json.dumps(probe.as_dict())
+        self.assertNotIn("secret-value", serialized)
+        self.assertEqual(probe.as_dict()["response_bodies"], "omitted")
+
+    def test_agent_visible_task_and_oracle_artifact_are_structurally_separate(self):
+        task = TaskArtifact(
+            task_id="task-boundary",
+            repository="local/task",
+            commit="base",
+            test_command="python3 -m unittest",
+            description="visible task",
+            visible_test_command="python3 -m unittest discover -s tests -v",
+            oracle_target_command="python3 -m unittest discover -s hidden -v",
+            oracle_regression_command="python3 -m unittest discover -s regression -v",
+        )
+        visible = AgentVisibleTask.from_task(task)
+        oracle = OracleArtifact.from_task(task)
+        self.assertNotIn("oracle_target_command", visible.as_dict())
+        self.assertNotIn("oracle_regression_command", visible.as_dict())
+        self.assertEqual(oracle.target_command, task.oracle_target_command)
+        self.assertEqual(oracle.regression_command, task.oracle_regression_command)
+
+        with tempfile.TemporaryDirectory() as directory:
+            bundle = create_readiness_task_bundle(directory)
+            model = FakeCodingModel(
+                [{"type": "final", "summary": "no-op for boundary test"}]
+            )
+            adapter = _adapter(model, bundle.control_workspace)
+            result = ExperimentRunner(adapter, ReadinessWorkspaceOracle()).run(
+                bundle.task,
+                experiment_id="boundary-v0",
+                condition=Condition.control(),
+                run_dir=Path(directory) / "run",
+            )
+            persisted_task = json.loads(
+                (Path(result.run_dir) / "task.json").read_text(encoding="utf-8")
+            )
+            self.assertNotIn("oracle_target_command", persisted_task)
+            self.assertNotIn("oracle_regression_command", persisted_task)
+            self.assertTrue(result.oracle_result.evaluator_valid)
+
+    def test_observed_model_identity_is_persisted_per_response(self):
+        with tempfile.TemporaryDirectory() as directory:
+            model = FakeCodingModel(
+                [
+                    {"type": "tool_call", "tool": "shell", "arguments": {"command": "pwd"}},
+                    {"type": "final", "summary": "done"},
+                ]
+            )
+            adapter = _adapter(model, directory)
+            visible = AgentVisibleTask(
+                task_id="identity-task",
+                repository="local/task",
+                commit="base",
+                description="inspect",
+                visible_test_command="python3 -m unittest",
+            )
+            trace = TraceRecorder(Path(directory) / "trace.jsonl", "identity-run")
+            result = adapter.run(visible, Condition.control(), trace)
+            observations = result.result["model_response_observations"]
+            self.assertEqual(len(observations), 2)
+            self.assertEqual(
+                {item["observed_model_id"] for item in observations},
+                {"fake-revision"},
+            )
+
+    def test_shared_preflight_failure_launches_zero_arms(self):
+        artifact = SimpleNamespace(
+            verified=True,
+            as_dict=lambda: {"verified": True},
+        )
+        model_config = SimpleNamespace(
+            model_name="probe-model",
+            config=SimpleNamespace(
+                as_dict=lambda: {"model_identifier": "probe-model", "credentials": "omitted"}
+            ),
+        )
+        failed_probe = SimpleNamespace(
+            status="FAIL",
+            as_dict=lambda: {"status": "FAIL", "credentials": "omitted"},
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            run_root = Path(directory) / "readiness"
+            with (
+                mock.patch.object(
+                    run_real_readiness_pair,
+                    "fetch_frozen_skill_artifact",
+                    return_value=artifact,
+                ),
+                mock.patch.object(
+                    run_real_readiness_pair.OpenAICompatibleCodingModel,
+                    "from_environment",
+                    return_value=model_config,
+                ),
+                mock.patch.object(
+                    run_real_readiness_pair,
+                    "probe_provider_capabilities",
+                    return_value=failed_probe,
+                ),
+                mock.patch.object(
+                    run_real_readiness_pair,
+                    "create_readiness_task_bundle",
+                ) as create_bundle,
+            ):
+                exit_code = run_real_readiness_pair.main(
+                    ["--run-root", str(run_root)]
+                )
+            self.assertEqual(exit_code, 0)
+            self.assertFalse(create_bundle.called)
+            self.assertFalse((run_root / "control").exists())
+            self.assertFalse((run_root / "treatment").exists())
+            result = json.loads(
+                (run_root / "readiness_result.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(result["shared_preflight"], "FAIL")
+            self.assertFalse(result["real_pair_executed"])
 
     def test_workspace_tool_blocks_escape_and_python_code_execution(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -140,7 +367,11 @@ class RealExperimentTests(unittest.TestCase):
                 oracle_target_command="hidden-target-command",
                 oracle_regression_command="hidden-regression-command",
             )
-            result = adapter.run(task, Condition.control(), trace)
+            result = adapter.run(
+                AgentVisibleTask.from_task(task),
+                Condition.control(),
+                trace,
+            )
 
             self.assertEqual(result.result["status"], "completed")
             self.assertEqual(
@@ -155,6 +386,19 @@ class RealExperimentTests(unittest.TestCase):
             prompt_text = json.dumps(model.messages)
             self.assertNotIn("hidden-target-command", prompt_text)
             self.assertNotIn("hidden-regression-command", prompt_text)
+            self.assertNotIn('"role": "tool"', prompt_text)
+            self.assertTrue(
+                any(
+                    message.get("role") == "user"
+                    and json.loads(message["content"]).get("type") == "tool_result"
+                    for call in model.messages
+                    for message in call
+                    if isinstance(message, dict)
+                    and message.get("role") == "user"
+                    and isinstance(message.get("content"), str)
+                    and message.get("content", "").startswith("{")
+                )
+            )
 
     def test_real_adapter_enforces_step_budget(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -185,7 +429,11 @@ class RealExperimentTests(unittest.TestCase):
                 test_command="python3 -m unittest",
                 description="Inspect the repository.",
             )
-            result = adapter.run(task, Condition.control(), trace)
+            result = adapter.run(
+                AgentVisibleTask.from_task(task),
+                Condition.control(),
+                trace,
+            )
             self.assertEqual(result.result["termination_reason"], "max_steps")
             self.assertEqual(trace.events[-1].event, "failure")
             self.assertEqual(trace.events[-1].details["category"], "budget")
@@ -200,7 +448,7 @@ class RealExperimentTests(unittest.TestCase):
                 encoding="utf-8",
             )
             result = ReadinessWorkspaceOracle().evaluate(
-                bundle.task,
+                OracleArtifact.from_task(bundle.task),
                 {"workspace_reference": str(bundle.control_workspace)},
             )
             self.assertTrue(result.evaluator_valid)
@@ -219,8 +467,8 @@ class RealExperimentTests(unittest.TestCase):
             artifact = fetch_frozen_skill_artifact(source)
             self.assertFalse(artifact.verified)
             self.assertEqual(
-                artifact.verification_error.split(": ", 1)[0],
-                "FROZEN_SKILL_MANIFEST_MISMATCH",
+                artifact.verification_error.split(":", 1)[0],
+                "FROZEN_SKILL_FILE_HASH_MISMATCH",
             )
             self.assertEqual(len(artifact.file_hashes), 4)
 

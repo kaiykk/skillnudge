@@ -20,19 +20,25 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from .experiment_runner import (
+    AgentVisibleTask,
     AgentExecutionContext,
     AgentResult,
+    OracleArtifact,
     Condition,
     ExecutionBudget,
     ExecutionPolicy,
     ExperimentRunError,
     FROZEN_SKILL_ARTIFACT_ID,
     FROZEN_SKILL_CONTENT_COMMIT,
+    FROZEN_SKILL_FILE_SHA256,
+    FROZEN_SKILL_HISTORICAL_MANIFEST_SCHEME,
+    FROZEN_SKILL_HISTORICAL_MANIFEST_SHA256,
+    FROZEN_SKILL_MANIFEST_SCHEME,
     FROZEN_SKILL_MANIFEST_SHA256,
     FROZEN_SKILL_REPOSITORY,
     FROZEN_SKILL_SOURCE_PATHS,
@@ -42,6 +48,7 @@ from .experiment_runner import (
     SYSTEMATIC_DEBUGGING_SKILL,
     TaskArtifact,
     TraceRecorder,
+    canonical_skill_manifest_sha256,
 )
 from .planning_model import LiveModelProviderUnavailable, _read_local_provider_env
 
@@ -76,6 +83,8 @@ class CodingModelConfig:
     timeout_seconds: float
     retry_policy: Mapping[str, Any]
     api_key: str = field(repr=False, default="")
+    parameter_support: Mapping[str, str] = field(default_factory=dict)
+    effective_request_parameters: Mapping[str, bool] = field(default_factory=dict)
 
     @classmethod
     def from_environment(cls) -> "CodingModelConfig":
@@ -146,6 +155,8 @@ class CodingModelConfig:
                 "model_error_retry_limit": 0,
             },
             api_key=api_key,
+            parameter_support={},
+            effective_request_parameters={},
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -162,8 +173,13 @@ class CodingModelConfig:
             "max_output_tokens": self.max_output_tokens,
             "timeout_seconds": self.timeout_seconds,
             "retry_policy": dict(self.retry_policy),
+            "parameter_support": dict(self.parameter_support),
+            "effective_request_parameters": dict(self.effective_request_parameters),
             "credentials": "omitted",
         }
+
+    def request_parameter_enabled(self, name: str, *, default: bool = True) -> bool:
+        return bool(self.effective_request_parameters.get(name, default))
 
 
 @dataclass(frozen=True)
@@ -171,10 +187,373 @@ class ModelResponse:
     action: Mapping[str, Any]
     output_tokens: int | None
     model_revision: str | None
+    observed_model_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.observed_model_id is None:
+            object.__setattr__(self, "observed_model_id", self.model_revision)
 
 
 class CodingModelError(RealExecutionError):
     """A redacted provider or response-protocol failure."""
+
+
+@dataclass(frozen=True)
+class ProviderCapabilityProbe:
+    """Redacted provider capability evidence used to freeze the request shape."""
+
+    status: str
+    endpoint_reachable: bool
+    authentication_status: str
+    model_access_status: str
+    json_action_status: str
+    requested_model: str
+    observed_model_ids: tuple[str, ...]
+    parameter_support: Mapping[str, str]
+    errors: tuple[str, ...] = ()
+    attempts: tuple[Mapping[str, Any], ...] = ()
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "endpoint_reachable": self.endpoint_reachable,
+            "authentication_status": self.authentication_status,
+            "model_access_status": self.model_access_status,
+            "json_action_status": self.json_action_status,
+            "requested_model": self.requested_model,
+            "observed_model_ids": list(self.observed_model_ids),
+            "parameter_support": dict(self.parameter_support),
+            "errors": list(self.errors),
+            "attempts": [dict(attempt) for attempt in self.attempts],
+            "credentials": "omitted",
+            "response_bodies": "omitted",
+        }
+
+
+@dataclass(frozen=True)
+class _ProviderProbeResponse:
+    status_code: int | None
+    payload: Mapping[str, Any] | None
+    error_kind: str | None
+    unsupported_parameter: str | None = None
+
+
+def _probe_error_kind(
+    status_code: int | None,
+    body_text: str,
+    parameter: str | None = None,
+) -> tuple[str, str | None]:
+    """Classify an error without returning provider text to artifacts."""
+
+    lowered = body_text.lower()
+    parameter_names = (
+        [parameter]
+        if parameter is not None
+        else ["response_format", "temperature", "top_p", "seed", "reasoning_effort", "max_tokens"]
+    )
+    unsupported_markers = (
+        "unsupported",
+        "not supported",
+        "unknown parameter",
+        "unrecognized",
+        "extra_forbidden",
+        "invalid parameter",
+        "does not support",
+    )
+    if any(
+        name and name.lower() in lowered for name in parameter_names
+    ) and any(marker in lowered for marker in unsupported_markers):
+        return "unsupported_parameter", next(
+            name for name in parameter_names if name and name.lower() in lowered
+        )
+    if status_code in {401, 403}:
+        return "authentication", None
+    if status_code in {408, 429}:
+        return "provider_rate_or_timeout", None
+    if status_code is not None and status_code >= 500:
+        return "provider_server", None
+    if status_code is not None:
+        return "http_error", None
+    return "transport", None
+
+
+def _probe_completion(
+    config: CodingModelConfig,
+    body: Mapping[str, Any],
+    *,
+    timeout_seconds: float,
+    parameter: str | None = None,
+) -> _ProviderProbeResponse:
+    request = urllib.request.Request(
+        url=config.endpoint_identity.rstrip("/") + "/chat/completions",
+        data=json.dumps(dict(body)).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {config.api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(
+            request, timeout=max(0.1, timeout_seconds)
+        ) as response:
+            raw = response.read()
+            payload = json.loads(raw.decode("utf-8"))
+            if not isinstance(payload, Mapping):
+                return _ProviderProbeResponse(
+                    response.status, None, "invalid_response"
+                )
+            return _ProviderProbeResponse(response.status, payload, None)
+    except urllib.error.HTTPError as error:
+        try:
+            raw = error.read()
+            body_text = raw.decode("utf-8", errors="replace")
+        except OSError:
+            body_text = ""
+        kind, unsupported_parameter = _probe_error_kind(
+            error.code, body_text, parameter
+        )
+        return _ProviderProbeResponse(
+            error.code,
+            None,
+            kind,
+            unsupported_parameter,
+        )
+    except (urllib.error.URLError, TimeoutError, OSError):
+        return _ProviderProbeResponse(None, None, "transport")
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return _ProviderProbeResponse(None, None, "invalid_response")
+
+
+def _probe_action_and_model(
+    payload: Mapping[str, Any] | None,
+) -> tuple[bool, str | None]:
+    if not isinstance(payload, Mapping):
+        return False, None
+    try:
+        content = payload["choices"][0]["message"]["content"]
+        if isinstance(content, list):
+            content = "".join(
+                item.get("text", "")
+                for item in content
+                if isinstance(item, Mapping)
+            )
+        action = json.loads(content) if isinstance(content, str) else content
+        valid_action = isinstance(action, Mapping)
+    except (KeyError, IndexError, TypeError, json.JSONDecodeError):
+        valid_action = False
+    observed_model = payload.get("model")
+    return valid_action, observed_model if isinstance(observed_model, str) else None
+
+
+def probe_provider_capabilities(
+    config: CodingModelConfig,
+) -> ProviderCapabilityProbe:
+    """Probe the provider before any task workspace or Agent execution."""
+
+    messages = [
+        {
+            "role": "system",
+            "content": "Return exactly one JSON object and no prose.",
+        },
+        {
+            "role": "user",
+            "content": '{"type":"final","summary":"capability probe"}',
+        },
+    ]
+    base_body = {
+        "model": config.model_name,
+        "messages": messages,
+        "max_tokens": config.max_output_tokens,
+    }
+    base = _probe_completion(
+        config,
+        base_body,
+        timeout_seconds=config.timeout_seconds,
+        parameter="max_tokens",
+    )
+    attempts: list[dict[str, Any]] = [
+        {
+            "parameter": "base",
+            "status_code": base.status_code,
+            "result": base.error_kind or "accepted",
+        }
+    ]
+    if base.error_kind is not None:
+        authentication_status = (
+            "fail" if base.error_kind == "authentication" else "unknown"
+        )
+        model_access_status = (
+            "fail"
+            if base.error_kind in {"http_error", "authentication"}
+            else "unknown"
+        )
+        return ProviderCapabilityProbe(
+            status="FAIL",
+            endpoint_reachable=base.status_code is not None,
+            authentication_status=authentication_status,
+            model_access_status=model_access_status,
+            json_action_status="not_tested",
+            requested_model=config.model_name,
+            observed_model_ids=(),
+            parameter_support={"max_tokens": "unsupported"}
+            if base.error_kind == "unsupported_parameter"
+            else {"max_tokens": "unknown"},
+            errors=(f"base_probe:{base.error_kind}",),
+            attempts=tuple(attempts),
+        )
+
+    valid_action, observed_model = _probe_action_and_model(base.payload)
+    observed_ids = [observed_model] if observed_model else []
+    parameter_support: dict[str, str] = {"max_tokens": "supported"}
+    if not valid_action:
+        return ProviderCapabilityProbe(
+            status="FAIL",
+            endpoint_reachable=True,
+            authentication_status="pass",
+            model_access_status="pass",
+            json_action_status="invalid",
+            requested_model=config.model_name,
+            observed_model_ids=tuple(observed_ids),
+            parameter_support=parameter_support,
+            errors=("base_probe:invalid_json_action",),
+            attempts=tuple(attempts),
+        )
+
+    probes = (
+        ("response_format", {"response_format": {"type": "json_object"}}),
+        ("temperature", {"temperature": config.temperature}),
+        ("top_p", {"top_p": config.top_p}),
+        ("seed", {"seed": config.seed if config.seed is not None else 0}),
+        (
+            "reasoning_effort",
+            {
+                "reasoning_effort": (
+                    config.reasoning_configuration
+                    or "low"
+                )
+            },
+        ),
+    )
+    for parameter, parameter_body in probes:
+        body = dict(base_body)
+        body.update(parameter_body)
+        response = _probe_completion(
+            config,
+            body,
+            timeout_seconds=config.timeout_seconds,
+            parameter=parameter,
+        )
+        if response.error_kind is None:
+            parameter_support[parameter] = "supported"
+            action_ok, observed = _probe_action_and_model(response.payload)
+            if observed:
+                observed_ids.append(observed)
+            if not action_ok:
+                attempts.append(
+                    {
+                        "parameter": parameter,
+                        "status_code": response.status_code,
+                        "result": "invalid_json_action",
+                    }
+                )
+                parameter_support[parameter] = "unknown"
+            else:
+                attempts.append(
+                    {
+                        "parameter": parameter,
+                        "status_code": response.status_code,
+                        "result": "accepted",
+                    }
+                )
+            continue
+        if response.error_kind == "unsupported_parameter":
+            parameter_support[parameter] = "unsupported"
+        else:
+            parameter_support[parameter] = "unknown"
+        attempts.append(
+            {
+                "parameter": parameter,
+                "status_code": response.status_code,
+                "result": response.error_kind,
+            }
+        )
+
+    effective_body = dict(base_body)
+    for parameter, parameter_body in probes:
+        if parameter_support.get(parameter) == "supported":
+            effective_body.update(parameter_body)
+    effective = _probe_completion(
+        config,
+        effective_body,
+        timeout_seconds=config.timeout_seconds,
+        parameter="effective_request",
+    )
+    if effective.error_kind is not None:
+        attempts.append(
+            {
+                "parameter": "effective_request",
+                "status_code": effective.status_code,
+                "result": effective.error_kind,
+            }
+        )
+        return ProviderCapabilityProbe(
+            status="FAIL",
+            endpoint_reachable=effective.status_code is not None,
+            authentication_status="pass",
+            model_access_status="unknown",
+            json_action_status="not_tested",
+            requested_model=config.model_name,
+            observed_model_ids=tuple(sorted(set(observed_ids))),
+            parameter_support=parameter_support,
+            errors=("effective_request:" + str(effective.error_kind),),
+            attempts=tuple(attempts),
+        )
+    effective_action_ok, effective_observed = _probe_action_and_model(
+        effective.payload
+    )
+    if effective_observed:
+        observed_ids.append(effective_observed)
+    if not effective_action_ok:
+        attempts.append(
+            {
+                "parameter": "effective_request",
+                "status_code": effective.status_code,
+                "result": "invalid_json_action",
+            }
+        )
+        return ProviderCapabilityProbe(
+            status="FAIL",
+            endpoint_reachable=True,
+            authentication_status="pass",
+            model_access_status="pass",
+            json_action_status="invalid",
+            requested_model=config.model_name,
+            observed_model_ids=tuple(sorted(set(observed_ids))),
+            parameter_support=parameter_support,
+            errors=("effective_request:invalid_json_action",),
+            attempts=tuple(attempts),
+        )
+    attempts.append(
+        {
+            "parameter": "effective_request",
+            "status_code": effective.status_code,
+            "result": "accepted",
+        }
+    )
+
+    return ProviderCapabilityProbe(
+        status="PASS",
+        endpoint_reachable=True,
+        authentication_status="pass",
+        model_access_status="pass",
+        json_action_status="valid",
+        requested_model=config.model_name,
+        observed_model_ids=tuple(sorted(set(observed_ids))),
+        parameter_support=parameter_support,
+        errors=(),
+        attempts=tuple(attempts),
+    )
 
 
 class OpenAICompatibleCodingModel:
@@ -189,6 +568,25 @@ class OpenAICompatibleCodingModel:
     def from_environment(cls) -> "OpenAICompatibleCodingModel":
         return cls(CodingModelConfig.from_environment())
 
+    def with_probe(
+        self,
+        probe: "ProviderCapabilityProbe",
+    ) -> "OpenAICompatibleCodingModel":
+        if probe.status != "PASS":
+            raise CodingModelError("MODEL_PROVIDER_PROBE_FAILED")
+        effective = {
+            name: status == "supported"
+            for name, status in probe.parameter_support.items()
+            if status in {"supported", "unsupported"}
+        }
+        return type(self)(
+            replace(
+                self.config,
+                parameter_support=dict(probe.parameter_support),
+                effective_request_parameters=effective,
+            )
+        )
+
     def complete(
         self,
         messages: Sequence[Mapping[str, Any]],
@@ -199,15 +597,23 @@ class OpenAICompatibleCodingModel:
         body: dict[str, Any] = {
             "model": self.config.model_name,
             "messages": list(messages),
-            "response_format": {"type": "json_object"},
-            "temperature": self.config.temperature,
-            "top_p": self.config.top_p,
             "max_tokens": max_output_tokens,
         }
-        if self.config.seed is not None:
+        if self.config.request_parameter_enabled("response_format"):
+            body["response_format"] = {"type": "json_object"}
+        if self.config.request_parameter_enabled("temperature"):
+            body["temperature"] = self.config.temperature
+        if self.config.request_parameter_enabled("top_p"):
+            body["top_p"] = self.config.top_p
+        if self.config.seed is not None and self.config.request_parameter_enabled("seed"):
             body["seed"] = self.config.seed
-        if self.config.reasoning_configuration is not None:
+        if (
+            self.config.reasoning_configuration is not None
+            and self.config.request_parameter_enabled("reasoning_effort")
+        ):
             body["reasoning_effort"] = self.config.reasoning_configuration
+        if not self.config.request_parameter_enabled("max_tokens"):
+            raise CodingModelError("MODEL_PROVIDER_MAX_TOKENS_UNSUPPORTED")
         request = urllib.request.Request(
             url=self.config.endpoint_identity.rstrip("/") + "/chat/completions",
             data=json.dumps(body).encode("utf-8"),
@@ -249,6 +655,9 @@ class OpenAICompatibleCodingModel:
             model_revision=payload.get("model")
             if isinstance(payload.get("model"), str)
             else None,
+            observed_model_id=payload.get("model")
+            if isinstance(payload.get("model"), str)
+            else None,
         )
 
 
@@ -260,6 +669,11 @@ class FrozenSkillArtifact:
     file_hashes: Mapping[str, str]
     actual_manifest_sha256: str
     expected_manifest_sha256: str
+    manifest_scheme: str
+    historical_manifest_sha256: str
+    historical_manifest_scheme: str
+    expected_file_hashes: Mapping[str, str]
+    file_hashes_match: bool
     verified: bool
     verification_error: str | None
 
@@ -292,11 +706,44 @@ class FrozenSkillArtifact:
             "content_commit": FROZEN_SKILL_CONTENT_COMMIT,
             "file_paths": list(FROZEN_SKILL_SOURCE_PATHS),
             "file_hashes": dict(self.file_hashes),
+            "expected_file_hashes": dict(self.expected_file_hashes),
+            "file_hashes_match": self.file_hashes_match,
+            "manifest_scheme": self.manifest_scheme,
             "expected_manifest_sha256": self.expected_manifest_sha256,
             "actual_manifest_sha256": self.actual_manifest_sha256,
+            "historical_manifest_scheme": self.historical_manifest_scheme,
+            "historical_manifest_sha256": self.historical_manifest_sha256,
+            "historical_manifest_status": "superseded_canonicalization_evidence",
             "verified": self.verified,
             "verification_error": self.verification_error,
         }
+
+
+def compare_frozen_skill_provenance(
+    file_hashes: Mapping[str, str],
+) -> dict[str, Any]:
+    """Compare raw file identity before interpreting manifest serialization."""
+
+    normalized = dict(file_hashes)
+    actual_manifest = canonical_skill_manifest_sha256(normalized)
+    mismatched_paths = [
+        path
+        for path in FROZEN_SKILL_SOURCE_PATHS
+        if normalized.get(path) != FROZEN_SKILL_FILE_SHA256.get(path)
+    ]
+    file_hashes_match = not mismatched_paths
+    manifest_match = actual_manifest == FROZEN_SKILL_MANIFEST_SHA256
+    return {
+        "file_hashes_match": file_hashes_match,
+        "mismatched_paths": mismatched_paths,
+        "actual_manifest_sha256": actual_manifest,
+        "expected_manifest_sha256": FROZEN_SKILL_MANIFEST_SHA256,
+        "manifest_scheme": FROZEN_SKILL_MANIFEST_SCHEME,
+        "historical_manifest_sha256": FROZEN_SKILL_HISTORICAL_MANIFEST_SHA256,
+        "historical_manifest_scheme": FROZEN_SKILL_HISTORICAL_MANIFEST_SCHEME,
+        "manifest_match": manifest_match,
+        "verified": file_hashes_match and manifest_match,
+    }
 
 
 def fetch_frozen_skill_artifact(
@@ -329,14 +776,18 @@ def fetch_frozen_skill_artifact(
         path: hashlib.sha256(content).hexdigest()
         for path, content in payload_files.items()
     }
-    records = [
-        f"{path}\tsha256:{file_hashes[path]}" for path in FROZEN_SKILL_SOURCE_PATHS
-    ]
-    actual = hashlib.sha256(("\n".join(records) + "\n").encode("utf-8")).hexdigest()
+    provenance = compare_frozen_skill_provenance(file_hashes)
+    actual = provenance["actual_manifest_sha256"]
+    file_hashes_match = provenance["file_hashes_match"]
     error = None
-    if actual != FROZEN_SKILL_MANIFEST_SHA256:
+    if not file_hashes_match:
+        error = "FROZEN_SKILL_FILE_HASH_MISMATCH:" + ",".join(
+            provenance["mismatched_paths"]
+        )
+    elif actual != FROZEN_SKILL_MANIFEST_SHA256:
         error = (
             "FROZEN_SKILL_MANIFEST_MISMATCH: "
+            f"scheme={FROZEN_SKILL_MANIFEST_SCHEME} "
             f"expected={FROZEN_SKILL_MANIFEST_SHA256} actual={actual}"
         )
     return FrozenSkillArtifact(
@@ -344,7 +795,12 @@ def fetch_frozen_skill_artifact(
         file_hashes=file_hashes,
         actual_manifest_sha256=actual,
         expected_manifest_sha256=FROZEN_SKILL_MANIFEST_SHA256,
-        verified=error is None,
+        manifest_scheme=FROZEN_SKILL_MANIFEST_SCHEME,
+        historical_manifest_sha256=FROZEN_SKILL_HISTORICAL_MANIFEST_SHA256,
+        historical_manifest_scheme=FROZEN_SKILL_HISTORICAL_MANIFEST_SCHEME,
+        expected_file_hashes=dict(FROZEN_SKILL_FILE_SHA256),
+        file_hashes_match=file_hashes_match,
+        verified=error is None and provenance["verified"],
         verification_error=error,
     )
 
@@ -556,6 +1012,7 @@ class RealCodingAgentAdapter:
         tokens: int,
         started: float,
         summary: str,
+        model_response_observations: Sequence[Mapping[str, Any]],
     ) -> AgentResult:
         return AgentResult(
             result={
@@ -564,6 +1021,9 @@ class RealCodingAgentAdapter:
                 "summary": summary,
                 "workspace_reference": str(workspace),
                 "changed_files": [],
+                "model_response_observations": [
+                    dict(item) for item in model_response_observations
+                ],
             },
             steps=steps,
             tokens=tokens,
@@ -586,10 +1046,15 @@ class RealCodingAgentAdapter:
             if line.strip() and not line.startswith(".git/")
         ]
 
-    def run(self, task: TaskArtifact, condition: Condition, trace: TraceRecorder) -> AgentResult:
+    def run(
+        self,
+        task: AgentVisibleTask,
+        condition: Condition,
+        trace: TraceRecorder,
+    ) -> AgentResult:
         context = self.context_for(condition)
         self.tool_executor = WorkspaceToolExecutor(
-            self.workspace, task.visible_test_command or task.test_command
+            self.workspace, task.visible_test_command
         )
         started = time.perf_counter()
         deadline = (
@@ -604,7 +1069,7 @@ class RealCodingAgentAdapter:
                 "content": (
                     f"Task: {task.description}\n"
                     f"Repository base commit: {task.commit}\n"
-                    f"Visible test command: {task.visible_test_command or task.test_command}\n"
+                    f"Visible test command: {task.visible_test_command}\n"
                     "Begin by inspecting the repository in the declared workspace."
                 ),
             },
@@ -613,6 +1078,7 @@ class RealCodingAgentAdapter:
         tool_calls = 0
         output_tokens = 0
         retries = 0
+        model_response_observations: list[dict[str, Any]] = []
         while True:
             if steps >= self.execution_budget.max_steps:
                 trace.emit("failure", {"category": "budget", "reason": "max_steps"})
@@ -623,6 +1089,7 @@ class RealCodingAgentAdapter:
                     tokens=output_tokens,
                     started=started,
                     summary="agent step budget exhausted",
+                    model_response_observations=model_response_observations,
                 )
             remaining = deadline - time.perf_counter()
             if remaining <= 0:
@@ -634,6 +1101,7 @@ class RealCodingAgentAdapter:
                     tokens=output_tokens,
                     started=started,
                     summary="agent wall-clock budget exhausted",
+                    model_response_observations=model_response_observations,
                 )
             steps += 1
             max_output = self.model_client.config.max_output_tokens
@@ -669,9 +1137,16 @@ class RealCodingAgentAdapter:
                     tokens=output_tokens,
                     started=started,
                     summary="model request or action protocol failed",
+                    model_response_observations=model_response_observations,
                 )
             if response.output_tokens is not None:
                 output_tokens += response.output_tokens
+            model_response_observations.append(
+                {
+                    "response_index": len(model_response_observations) + 1,
+                    "observed_model_id": response.observed_model_id,
+                }
+            )
             action = dict(response.action)
             action_type = action.get("type")
             if action_type == "final":
@@ -685,6 +1160,9 @@ class RealCodingAgentAdapter:
                         "summary": summary,
                         "workspace_reference": str(self.workspace),
                         "changed_files": self._changed_files(),
+                        "model_response_observations": [
+                            dict(item) for item in model_response_observations
+                        ],
                     },
                     steps=steps,
                     tokens=output_tokens,
@@ -702,6 +1180,7 @@ class RealCodingAgentAdapter:
                     tokens=output_tokens,
                     started=started,
                     summary="model returned an unsupported action",
+                    model_response_observations=model_response_observations,
                 )
             tool = action.get("tool")
             arguments = action.get("arguments", {})
@@ -717,6 +1196,7 @@ class RealCodingAgentAdapter:
                     tokens=output_tokens,
                     started=started,
                     summary="model returned an invalid tool call",
+                    model_response_observations=model_response_observations,
                 )
             if tool_calls >= self.execution_budget.max_tool_calls:
                 trace.emit("failure", {"category": "budget", "reason": "max_tool_calls"})
@@ -727,6 +1207,7 @@ class RealCodingAgentAdapter:
                     tokens=output_tokens,
                     started=started,
                     summary="agent tool-call budget exhausted",
+                    model_response_observations=model_response_observations,
                 )
             tool_calls += 1
             trace.emit(
@@ -755,7 +1236,7 @@ class RealCodingAgentAdapter:
                 trace.emit(
                     "test_execution",
                     {
-                        "command": task.visible_test_command or task.test_command,
+                        "command": task.visible_test_command,
                         "exit_code": result.get("exit_code"),
                         "passed": result.get("ok") is True,
                     },
@@ -773,8 +1254,15 @@ class RealCodingAgentAdapter:
             messages.append({"role": "assistant", "content": json.dumps(action)})
             messages.append(
                 {
-                    "role": "tool",
-                    "content": json.dumps(result, ensure_ascii=False),
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "type": "tool_result",
+                            "tool": tool,
+                            "result": result,
+                        },
+                        ensure_ascii=False,
+                    ),
                 }
             )
 
@@ -824,7 +1312,7 @@ class ReadinessWorkspaceOracle:
         status = result.returncode == 0
         return status, f"exit_code={result.returncode}"
 
-    def evaluate(self, task: TaskArtifact, result: Any) -> OracleResult:
+    def evaluate(self, task: OracleArtifact, result: Any) -> OracleResult:
         if not isinstance(result, Mapping):
             return OracleResult(
                 success=None,
@@ -844,10 +1332,10 @@ class ReadinessWorkspaceOracle:
             )
         workspace = Path(reference).resolve()
         target_status, target_diag = self._run_check(
-            task.oracle_target_command or "", workspace
+            task.target_command or "", workspace
         )
         regression_status, regression_diag = self._run_check(
-            task.oracle_regression_command or "", workspace
+            task.regression_command or "", workspace
         )
         evaluator_valid = target_status is not None and regression_status is not None
         success = target_status if evaluator_valid else None
@@ -881,6 +1369,26 @@ class ReadinessWorkspaceOracle:
                 "agent_visibility": "forbidden",
             },
         )
+
+    def self_test(
+        self,
+        oracle_artifact: OracleArtifact,
+        workspace: str | Path,
+    ) -> dict[str, Any]:
+        """Validate evaluator command wiring before either Agent arm starts."""
+
+        result = self.evaluate(
+            oracle_artifact,
+            {"workspace_reference": str(Path(workspace).resolve())},
+        )
+        return {
+            "status": "PASS" if result.evaluator_valid is True else "FAIL",
+            "evaluator_valid": result.evaluator_valid,
+            "target_status": result.target_status,
+            "regression_status": result.regression_status,
+            "diagnostics": list(result.diagnostics),
+            "oracle_version": self.oracle_version,
+        }
 
 
 def environment_identity() -> str:
