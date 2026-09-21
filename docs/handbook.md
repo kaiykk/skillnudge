@@ -5,7 +5,9 @@
 
 ## Active Current Outcome
 
-**Status:** ACTIVE
+**Status:** PROVEN / CLOSED
+
+**Milestone:** Phase 1 Native MVP — CLOSED for the Codex reference host
 
 **Outcome:**
 
@@ -14,20 +16,48 @@ From an unrelated repository, the Principal can explicitly invoke
 existing model, through the installed SkillNudge deterministic core and
 default corpus, without configuring a separate SkillNudge LLM provider.
 
-**Evidence required:**
+**Acceptance evidence:**
 
 - clean installation succeeds;
-- Codex discovers `$skillnudge`;
-- explicit invocation occurs;
+- Codex discovers and explicitly invokes `$skillnudge` from an unrelated
+  repository;
 - host Agent semantic reasoning executes;
 - provider-free SkillNudge retrieval/evidence executes;
-- one actual advice is returned to the Principal.
+- 10 candidates are hydrated;
+- one actual host-model advice is returned to the Principal.
 
-**Current known blockers:**
+**Observed reference-host evidence:**
 
-- the provider-free Native Mode path must complete a real Phase 1 call;
-- installed Codex invocation has not yet been demonstrated;
-- the default corpus must be large enough for meaningful dogfood.
+```text
+Codex host model
+  -> installed $skillnudge
+  -> native contract
+  -> skillnudge retrieve --stdin
+  -> default corpus/index
+  -> BM25 + RRF
+  -> Evidence Hydration
+  -> 10 hydrated candidates
+  -> host-model judgement
+  -> real Final Advice
+```
+
+The returned advice recommended `regression-tester` as primary, with
+`code-reviewer` as an optional companion and `playwright-testing` as
+conditional. The observed provider was `null`; no separate SkillNudge model
+credential was required.
+
+**Resolved for the Codex reference host:**
+
+- provider-free Native Mode completed a real Phase 1 call;
+- installed Codex discovery and explicit invocation were demonstrated;
+- the default corpus/index produced a real hydrated evidence set.
+
+**No new Current Outcome has been started.** The project remains at the
+completed Phase 1 Native MVP boundary while the following items stay in the
+Parking Lot: Test 5 meta-workflow / underlying-task capability confusion;
+candidate evidence-boundary leakage involving locally known skills; retrieval
+top-k relevance drift; `complete_unverified` provenance; corpus coverage gaps;
+cross-host validation; and Phase 2 evaluation work.
 
 **Not required for this outcome:**
 
@@ -38,9 +68,10 @@ default corpus, without configuring a separate SkillNudge LLM provider.
 - implicit triggering;
 - benchmark-level evaluation.
 
-This outcome is the current project GPS coordinate. Do not infer a replacement
-outcome from internal implementation progress, completed documentation, or
-passing tests.
+This outcome was the current project GPS coordinate and is now proven for the
+Codex reference host. Do not infer a replacement outcome from internal
+implementation progress, completed documentation, or passing tests. A new
+Current Outcome requires an explicit project decision.
 
 ## Host-Native Product Invariant
 
@@ -221,10 +252,12 @@ Subsystem complete -> Product milestone complete
 
 ## Current Scope Boundary
 
-Until the Active Current Outcome is reached, work that does not directly
-remove its blockers or produce its required evidence is not active work.
+After the Active Current Outcome is reached, work that does not belong to an
+explicitly approved new outcome remains parked rather than becoming active by
+inference.
 
-The following are explicitly out of scope until then:
+The following remain explicitly out of scope until a new Current Outcome is
+started by project decision:
 
 - Phase 2 paired experiments;
 - SWE-bench;

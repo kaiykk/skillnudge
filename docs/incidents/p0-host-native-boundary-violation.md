@@ -2,8 +2,9 @@
 
 **Severity:** P0
 
-**Status:** OPEN — implementation complete; public Codex invocation evidence is
-still required
+**Status:** CLOSED — external native Codex invocation verified
+
+**Closed:** 2026-09-21
 
 **Discovered:** 2026-09-21 through real unrelated-repository dogfood
 
@@ -153,8 +154,8 @@ Codex host model
 - [x] Preserve the provider-backed `skillnudge advise` standalone path.
 - [x] Update the public Skill to use the Native Decision Protocol.
 - [x] Add provider-free core and public-Skill regression guards.
-- [ ] Run the real unrelated-repository Native Mode vertical slice.
-- [ ] Review the returned advice and close the P0 only after external evidence.
+- [x] Run the real unrelated-repository Native Mode vertical slice.
+- [x] Review the returned advice and close the P0 after external evidence.
 
 ## Regression-Prevention Rules
 
@@ -225,9 +226,9 @@ The host model's bounded interpretation of the returned evidence was:
 
 This is provider-free core evidence, not proof of the full public Skill path.
 The candidate's provenance was `complete_unverified`; this run did not
-independently verify the upstream repository contents or license. A real
-explicit `$skillnudge` invocation from Codex in an unrelated repository is
-still required before the P0 can close.
+independently verify the upstream repository contents or license. The later
+external reference-host run below supplies the missing public-product
+evidence.
 
 ## Closure Criteria
 
@@ -247,6 +248,47 @@ The status can become **CLOSED** only when all of these are true:
 - the host model returns one real advice.
 
 The evidence above satisfies the provider-free core criteria but not the final
-two public-product criteria. The incident remains OPEN until the installed
-Codex Skill is actually discovered and explicitly invoked from an unrelated
-repository, and the host model returns one real advice through that path.
+two public-product criteria. Those criteria were subsequently satisfied by the
+external reference-host run recorded below.
+
+## Final Closure Evidence
+
+**Run date:** 2026-09-21
+
+**Reference host:** Codex reference host, with the installed Skill invoked from
+an unrelated repository
+
+**Representative query:** A normal refactor request in the unrelated
+repository. The verbatim user prompt was not retained in this repository
+artifact, so this record intentionally does not reconstruct or invent it.
+
+**Observed successful trace:**
+
+```text
+Codex host model
+  -> installed $skillnudge Skill
+  -> native contract
+  -> provider-free skillnudge retrieve --stdin
+  -> default corpus/index
+  -> BM25 + RRF
+  -> Evidence Hydration
+  -> 10 hydrated candidates
+  -> host-model judgement
+  -> real Final Advice
+```
+
+**Provider:** `null`
+
+No separate SkillNudge LLM provider, API key, or provider credential was
+required.
+
+**Advice returned:**
+
+- primary recommendation: `regression-tester`;
+- optional supporting companion: `code-reviewer`;
+- conditional candidate: `playwright-testing`.
+
+This is the required external product evidence for the reference host: the
+installed Skill was discovered and explicitly invoked, the provider-free
+SkillNudge core executed, and the host model returned real Phase 1 advice.
+The P0 incident is therefore CLOSED for the Codex reference host.
