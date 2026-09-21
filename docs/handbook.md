@@ -234,6 +234,90 @@ implementation and re-evaluate:
 - whether the project is accumulating internal completeness instead of
   externally verifiable capability.
 
+## Vertical Slice Development Rhythm
+
+For every active milestone:
+
+1. Define one Current Outcome.
+2. Build one minimum vertical slice toward that outcome.
+3. Run the slice in the real target environment.
+4. Observe the actual failure.
+5. Fix only the failure that blocks the Current Outcome.
+
+Internal completeness is not progress unless it produces new externally
+observable evidence.
+
+## Phase 2 First-Pair Guardrail
+
+Before the first real valid Control/Treatment pair exists, Phase 2 must not
+expand into:
+
+- multi-host support;
+- generic experiment runner frameworks;
+- provider abstractions;
+- provider readiness systems or capability probes;
+- benchmark platforms or dataset expansion;
+- generalized evaluator frameworks;
+- distributed experiment infrastructure;
+- lifecycle or Skill evolution;
+- SkillNudge Decision Utility;
+- automatic capability-selection optimization.
+
+The only objective before the first pair is:
+
+```text
+one task
+one intervention
+one host
+one pair
+one oracle
+one conclusion
+```
+
+### First-Pair Necessity Test
+
+Before adding any Phase 2 code, ask:
+
+> If this code did not exist, could the first real Control/Treatment pair
+> still be executed and evaluated?
+
+If the answer is yes, the code is presumed out of scope for the current
+milestone. An exception requires an explicit Principal decision.
+
+### Measurement Architecture Review Trigger
+
+If Phase 2 adds responsibility for any of the following inside Measurement
+Core, stop implementation and trigger an architecture review:
+
+- model or provider client;
+- API-key management for Agent execution;
+- provider fallback or probing;
+- Agent loop, planner, orchestrator, or tool routing;
+- Agent retry/recovery lifecycle;
+- context or memory management;
+- Skill discovery or recommendation;
+- duplicate SkillNudge product reasoning;
+- custom Agent runtime;
+- generic host framework before demonstrated need;
+- generic readiness infrastructure.
+
+Measurement observes and compares host executions. Measurement must not become
+the host.
+
+## Phase 2 Reference Host
+
+The frozen reference host for the first Phase 2 causal slice is **Codex**.
+This is based on the completed Phase 1 Native MVP evidence: Codex already
+discovers and invokes the installed SkillNudge Skill, and the provider-free
+native path has returned real advice from an unrelated repository.
+
+This is a first-slice freeze, not a claim that Codex is the only or permanent
+supported host. Multi-host support remains out of scope until the first valid
+pair exists.
+
+The first real task-selection analysis is recorded in
+[`docs/research/phase2-first-causal-task-selection-v0.1.md`](research/phase2-first-causal-task-selection-v0.1.md).
+
 ## Historical Anti-Patterns
 
 These are explicit lessons from this project:
