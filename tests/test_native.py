@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -13,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from skillnudge.native import main, run_native_retrieval  # noqa: E402
+from skillnudge.planning_contracts import NATIVE_CONTRACT_ENUMS  # noqa: E402
 from skillnudge.retrieval import build_index  # noqa: E402
 
 
@@ -103,6 +105,23 @@ def _database(root: Path) -> Path:
 
 
 class NativeRuntimeTests(unittest.TestCase):
+    def test_documented_native_enums_match_validator_values(self):
+        skill_dir = ROOT / ".agents" / "skills" / "skillnudge"
+        skill_text = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+        contract_text = (skill_dir / "native-contract.md").read_text(encoding="utf-8")
+        self.assertIn("native-contract.md", skill_text)
+        match = re.search(
+            r"## Validator-Comparison Data.*?```json\n(\{.*?\})\n```",
+            contract_text,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(match)
+        documented = json.loads(match.group(1))
+        self.assertEqual(
+            documented,
+            {key: sorted(values) for key, values in NATIVE_CONTRACT_ENUMS.items()},
+        )
+
     def test_public_skill_does_not_delegate_to_standalone_command(self):
         skill_text = (ROOT / ".agents" / "skills" / "skillnudge" / "SKILL.md").read_text(
             encoding="utf-8"

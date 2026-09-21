@@ -15,6 +15,28 @@ class ContractValidationError(ValueError):
         super().__init__(message)
 
 
+# These values are the enforcement source for the host-produced Native Mode
+# planning envelope. The focused Skill contract document is regression-tested
+# against this mapping so host guidance cannot silently drift.
+CAPABILITY_CONFIDENCE_VALUES = frozenset({"high", "medium", "low"})
+INTERVENTION_DECISION_VALUES = frozenset({"search", "no_intervention", "clarify"})
+TARGET_FAMILY_VALUES = frozenset({"skill", "integration", "resource"})
+TARGET_PRIORITY_VALUES = frozenset({"primary", "secondary", "companion"})
+QUERY_STATUS_VALUES = frozenset({"ready", "skipped", "clarify"})
+QUERY_ANGLE_VALUES = frozenset(
+    {"capability", "problem", "outcome", "operation", "professional_vocabulary", "stage"}
+)
+NATIVE_CONTRACT_ENUMS = {
+    "capability_framing.confidence": CAPABILITY_CONFIDENCE_VALUES,
+    "intervention_plan.decision": INTERVENTION_DECISION_VALUES,
+    "intervention_plan.targets[].family": TARGET_FAMILY_VALUES,
+    "intervention_plan.targets[].priority": TARGET_PRIORITY_VALUES,
+    "query_plan.status": QUERY_STATUS_VALUES,
+    "query_plan.queries[].family": TARGET_FAMILY_VALUES,
+    "query_plan.queries[].angle": QUERY_ANGLE_VALUES,
+}
+
+
 def _mapping(value: Any, contract_name: str, errors: list[str]) -> Mapping[str, Any] | None:
     if not isinstance(value, Mapping):
         errors.append("response must be a JSON object")
@@ -105,7 +127,7 @@ def validate_capability_framing(value: Any) -> dict[str, Any]:
         )
     errors.extend(f"contract.{error}" for error in contract_errors)
 
-    _enum(result, "confidence", {"high", "medium", "low"}, errors)
+    _enum(result, "confidence", CAPABILITY_CONFIDENCE_VALUES, errors)
     if "clarification_needed" not in result or not isinstance(result.get("clarification_needed"), bool):
         errors.append("clarification_needed must be a boolean")
     _nullable_string(result, "clarification_question", errors)
@@ -129,7 +151,7 @@ def validate_intervention_plan(value: Any) -> dict[str, Any]:
     plan = _mapping(value, "InterventionPlan", errors)
     if plan is None:
         raise ContractValidationError("InterventionPlan", errors)
-    _enum(plan, "decision", {"search", "no_intervention", "clarify"}, errors)
+    _enum(plan, "decision", INTERVENTION_DECISION_VALUES, errors)
     _required_string(plan, "decision_reason", errors)
     targets = plan.get("targets")
     if not isinstance(targets, list):
@@ -143,8 +165,8 @@ def validate_intervention_plan(value: Any) -> dict[str, Any]:
         target_errors: list[str] = []
         target_data = _mapping(target, f"InterventionPlan.targets[{index}]", target_errors)
         if target_data is not None:
-            _enum(target_data, "family", {"skill", "integration", "resource"}, target_errors)
-            _enum(target_data, "priority", {"primary", "secondary", "companion"}, target_errors)
+            _enum(target_data, "family", TARGET_FAMILY_VALUES, target_errors)
+            _enum(target_data, "priority", TARGET_PRIORITY_VALUES, target_errors)
             _required_string(target_data, "rationale", target_errors)
             _unexpected(target_data, {"family", "priority", "rationale"}, target_errors)
             if isinstance(target_data.get("family"), str):
@@ -177,7 +199,7 @@ def validate_query_plan(value: Any) -> dict[str, Any]:
     result = _mapping(value, "QueryPlanResult", errors)
     if result is None:
         raise ContractValidationError("QueryPlanResult", errors)
-    _enum(result, "status", {"ready", "skipped", "clarify"}, errors)
+    _enum(result, "status", QUERY_STATUS_VALUES, errors)
     queries = result.get("queries")
     if not isinstance(queries, list):
         errors.append("queries must be a list")
@@ -188,8 +210,8 @@ def validate_query_plan(value: Any) -> dict[str, Any]:
         query_errors: list[str] = []
         query_data = _mapping(query, f"QueryPlanResult.queries[{index}]", query_errors)
         if query_data is not None:
-            _enum(query_data, "family", {"skill", "integration", "resource"}, query_errors)
-            _enum(query_data, "angle", {"capability", "problem", "outcome", "operation", "professional_vocabulary", "stage"}, query_errors)
+            _enum(query_data, "family", TARGET_FAMILY_VALUES, query_errors)
+            _enum(query_data, "angle", QUERY_ANGLE_VALUES, query_errors)
             _required_string(query_data, "semantic_query", query_errors)
             _required_string(query_data, "purpose", query_errors)
             _unexpected(query_data, {"family", "angle", "semantic_query", "purpose"}, query_errors)

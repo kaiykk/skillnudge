@@ -21,7 +21,9 @@ When this Skill is explicitly invoked:
    repository is available, derive only concise context such as the repository
    name and current working stage from visible files or the request. Do not
    invent context; an empty or unknown value is valid.
-4. As the host model, perform Capability Framing and produce a bounded
+4. Read the focused `native-contract.md` reference in this Skill directory
+   before producing any host-owned planning artifact. As the host model,
+   perform Capability Framing and produce a bounded
    `capability_framing` object using the installed contract. Then choose
    exactly one Intervention Plan decision:
    `search`, `no_intervention`, or `clarify`.
@@ -32,56 +34,10 @@ When this Skill is explicitly invoked:
    distinct-family secondary or companion target, and a Query Plan with no more
    than five complementary queries. Every query family must be one of the
    planned target families. Do not repeat `semantic_query` strings.
-6. When search is required, send the following JSON envelope to the installed
-   deterministic retrieval command:
-
-   ```json
-   {
-     "schema_version": "native.planning-envelope.v0",
-     "input": {
-       "raw_request": "<the user's request>",
-       "project_context": null,
-       "current_stage": null
-     },
-     "capability_framing": {
-       "contract": {
-         "goal": "<goal>",
-         "stage": null,
-         "blocker": "<concrete blocker>",
-         "missing_capabilities": ["<at most three capabilities>"],
-         "intended_effect": "<intended effect>",
-         "constraints": [],
-         "not_needed": [],
-         "uncertainties": []
-       },
-       "confidence": "medium",
-       "clarification_needed": false,
-       "clarification_question": null
-     },
-     "intervention_plan": {
-       "decision": "search",
-       "targets": [
-         {
-           "family": "skill",
-           "priority": "primary",
-           "rationale": "<why this family is needed>"
-         }
-       ],
-       "decision_reason": "<bounded reason>"
-     },
-     "query_plan": {
-       "status": "ready",
-       "queries": [
-         {
-           "family": "skill",
-           "angle": "capability",
-           "semantic_query": "<distinct retrieval phrase>",
-           "purpose": "<what this query tests>"
-         }
-       ]
-     }
-   }
-   ```
+6. When search is required, send the JSON envelope defined in
+   `native-contract.md` to the installed deterministic retrieval command.
+   That reference defines every required field, optional field, allowed enum,
+   and early-stop invariant. Do not invent fields or enum values.
 
    Invoke `skillnudge retrieve --stdin` using the host's structured process
    API when available. Do not pass `--database`, `PYTHONPATH`, provider
