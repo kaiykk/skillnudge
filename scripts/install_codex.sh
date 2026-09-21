@@ -62,6 +62,7 @@ cp -R "$skill_source/." "$skill_target/"
 "$launcher" --help >/dev/null
 "$launcher" bootstrap --json >/dev/null
 "$launcher" advise --help >/dev/null
+"$launcher" retrieve --help >/dev/null
 test -s "$skill_target/SKILL.md"
 test -x "$launcher"
 

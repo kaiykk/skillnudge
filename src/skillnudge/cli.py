@@ -20,6 +20,10 @@ def main(argv: list[str] | None = None) -> int:
         subparsers = parser.add_subparsers(dest="command")
         subparsers.add_parser("advise", help="run the Phase 1 capability advisor")
         subparsers.add_parser("bootstrap", help="build the default local corpus/index")
+        subparsers.add_parser(
+            "retrieve",
+            help="run provider-free Native Mode retrieval from a planning envelope",
+        )
         parser.print_help()
         return 0
     if args and args[0] == "bootstrap":
@@ -40,6 +44,10 @@ def main(argv: list[str] | None = None) -> int:
         from .phase1 import main as phase1_main
 
         return phase1_main(args)
+    if args and args[0] == "retrieve":
+        from .native import main as native_main
+
+        return native_main(args[1:])
     from .phase1 import main as phase1_main
 
     return phase1_main(args)

@@ -31,6 +31,10 @@ installed_python="$isolated_home/.local/share/skillnudge/venv/bin/python"
 test -s "$HOME/.agents/skills/skillnudge/SKILL.md"
 test -x "$HOME/.local/bin/skillnudge"
 test -x "$installed_python"
+if grep -Fq 'skillnudge advise' "$HOME/.agents/skills/skillnudge/SKILL.md"; then
+    printf '%s\n' 'ERROR: public Skill still delegates Native Mode to advise' >&2
+    exit 1
+fi
 (
     cd "$target_repo"
     help_output="$(skillnudge --help)"
@@ -40,6 +44,7 @@ test -x "$installed_python"
             exit 1
             ;;
     esac
+    skillnudge retrieve --help >/dev/null
     bootstrap_json="$(skillnudge bootstrap --json)"
     database_path="$(printf '%s' "$bootstrap_json" | "$installed_python" -c '
 import json
@@ -69,6 +74,64 @@ print(json.load(sys.stdin)["data_dir"])
 ')"
     test -s "$data_dir/skillnudge.sqlite3"
     test -s "$data_dir/bootstrap.json"
+    (
+    unset DEEPSEEK_API_KEY
+    unset SKILLNUDGE_MODEL
+    unset SKILLNUDGE_MODEL_API_KEY
+    unset SKILLNUDGE_MODEL_BASE_URL
+    unset SKILLNUDGE_MODEL_TIMEOUT_SECONDS
+    unset SKILLNUDGE_MODEL_TEMPERATURE
+    unset SKILLNUDGE_MODEL_TOP_P
+    unset SKILLNUDGE_MODEL_SEED
+    unset SKILLNUDGE_MODEL_MAX_OUTPUT_TOKENS
+    unset SKILLNUDGE_MODEL_REASONING_EFFORT
+    "$installed_python" - <<'PY' | "$HOME/.local/bin/skillnudge" retrieve --stdin >/dev/null
+import json
+import sys
+
+print(json.dumps({
+    "schema_version": "native.planning-envelope.v0",
+    "input": {
+        "raw_request": "Find guidance for a vague interface task.",
+        "project_context": None,
+        "current_stage": None,
+    },
+    "capability_framing": {
+        "contract": {
+            "goal": "Improve the interface task",
+            "stage": "exploration",
+            "blocker": "The task needs reusable guidance.",
+            "missing_capabilities": ["interface guidance"],
+            "intended_effect": "Make the next step more concrete.",
+            "constraints": [],
+            "not_needed": [],
+            "uncertainties": [],
+        },
+        "confidence": "medium",
+        "clarification_needed": False,
+        "clarification_question": None,
+    },
+    "intervention_plan": {
+        "decision": "search",
+        "targets": [{
+            "family": "skill",
+            "priority": "primary",
+            "rationale": "A reusable skill may address the blocker.",
+        }],
+        "decision_reason": "Search the skill family.",
+    },
+    "query_plan": {
+        "status": "ready",
+        "queries": [{
+            "family": "skill",
+            "angle": "capability",
+            "semantic_query": "interface guidance visual hierarchy",
+            "purpose": "Find reusable interface guidance.",
+        }],
+    },
+}))
+PY
+    )
 )
 
 "$installed_python" - "$source_copy/src/skillnudge/data/default_corpus.json" <<'PY'

@@ -1,7 +1,7 @@
 # SkillNudge Project Handbook
 
 **Status:** Canonical project operating guide
-**Last updated:** 2026-09-20
+**Last updated:** 2026-09-21
 
 ## Active Current Outcome
 
@@ -23,7 +23,7 @@ installed SkillNudge runtime against the installed default corpus.
 
 **Current known blockers:**
 
-- the supported provider path must complete a real Phase 1 call;
+- the provider-free Native Mode path must complete a real Phase 1 call;
 - installed Codex invocation has not yet been demonstrated;
 - the default corpus must be large enough for meaningful dogfood.
 
@@ -39,6 +39,21 @@ installed SkillNudge runtime against the installed default corpus.
 This outcome is the current project GPS coordinate. Do not infer a replacement
 outcome from internal implementation progress, completed documentation, or
 passing tests.
+
+## Host-Native Product Invariant
+
+Public SkillNudge integrations MUST use the host Agent for semantic reasoning.
+Installing or invoking SkillNudge MUST NOT require, initialize, or fall back to
+a separate SkillNudge LLM provider.
+
+Provider-backed execution is allowed only for explicit standalone evaluation,
+testing, CI, or research paths.
+
+### Dependency Invariant
+
+Native product paths may depend on the provider-free Capability Core.
+Capability Core MUST NOT depend on provider, standalone-evaluation, or Phase 2
+runtime modules.
 
 ## Current Outcome Gate
 

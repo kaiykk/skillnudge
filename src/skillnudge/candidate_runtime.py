@@ -7,11 +7,9 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Protocol
 
-from .planning import PlanningRunResult
 from .planning_contracts import (
-    ContractValidationError,
     validate_intervention_plan,
     validate_planning_consistency,
     validate_query_plan,
@@ -28,6 +26,15 @@ SUPPORTED_ACQUISITION_FAMILIES = frozenset({"skill"})
 
 class CandidateAcquisitionError(RuntimeError):
     """Raised when a planning result cannot be consumed safely."""
+
+
+class AcquisitionPlanningResult(Protocol):
+    """Minimal structural planning boundary shared by provider and Native Mode."""
+
+    run_id: str
+    run_dir: str
+    intervention_plan: Mapping[str, Any]
+    query_plan: Mapping[str, Any]
 
 
 @dataclass(frozen=True)
@@ -115,7 +122,7 @@ class CandidateAcquisitionRuntime:
         self.hydration_limit = hydration_limit
         self.rrf_k = rrf_k
 
-    def run(self, planning_result: PlanningRunResult) -> CandidateRuntimeResult:
+    def run(self, planning_result: AcquisitionPlanningResult) -> CandidateRuntimeResult:
         output_dir = Path(planning_result.run_dir)
         run_id = planning_result.run_id
         trace_path = output_dir / "trace.jsonl"
