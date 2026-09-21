@@ -69,6 +69,9 @@ FIXTURE_ORACLE_VERSION = "fixture-oracle-v0"
 TRACE_INSTRUMENTATION_ID = TRACE_EVENT_SCHEMA
 EVIDENCE_VALIDITIES = frozenset({"VALID", "INCONCLUSIVE", "PROTOCOL_FAILURE"})
 PAIR_STATUSES = frozenset({"VALID", "PROTOCOL_FAILURE"})
+UTILITY_CONCLUSIONS = frozenset(
+    {"HELPS", "NEUTRAL", "HURTS", "INCONCLUSIVE", "PROTOCOL_FAILURE"}
+)
 ARTIFACT_VERIFICATION_MODES = frozenset(
     {"none", "synthetic_fixture", "frozen_verified_artifact"}
 )
@@ -1846,6 +1849,7 @@ class PairValidationResult:
     errors: list[str] = field(default_factory=list)
     control_observed_model_identity: Mapping[str, Any] = field(default_factory=dict)
     treatment_observed_model_identity: Mapping[str, Any] = field(default_factory=dict)
+    execution_evidence: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.pair_status not in PAIR_STATUSES:
@@ -1865,6 +1869,7 @@ class PairValidationResult:
                 "control": dict(self.control_observed_model_identity),
                 "treatment": dict(self.treatment_observed_model_identity),
             },
+            "execution_evidence": dict(self.execution_evidence),
             "expected_intervention_difference": {
                 "control": {
                     "skill_payload": "absent",
@@ -1895,6 +1900,7 @@ def validate_pair_manifest(value: Any) -> dict[str, Any]:
         "errors",
         "observed_model_identity",
         "expected_intervention_difference",
+        "execution_evidence",
     }
     _unexpected(value, allowed, errors)
     if value.get("schema_version") != PAIR_MANIFEST_SCHEMA:
@@ -1924,6 +1930,8 @@ def validate_pair_manifest(value: Any) -> dict[str, Any]:
         errors.append("observed_model_identity must contain control and treatment objects")
     if not _is_mapping(value.get("expected_intervention_difference")):
         errors.append("expected_intervention_difference must be an object")
+    if not _is_mapping(value.get("execution_evidence", {})):
+        errors.append("execution_evidence must be an object")
     if errors:
         raise ExperimentSchemaError("PairManifest", errors)
     _assert_observable_payload(value, "PairManifest")
@@ -1968,6 +1976,7 @@ def validate_paired_runs(
     *,
     control_task: TaskArtifact | Mapping[str, Any] | None = None,
     treatment_task: TaskArtifact | Mapping[str, Any] | None = None,
+    execution_evidence: Mapping[str, Any] | None = None,
 ) -> PairValidationResult:
     """Validate causal parity without interpreting utility."""
 
@@ -2085,6 +2094,25 @@ def validate_paired_runs(
     ):
         errors.append("treatment skill_manifest_hash must match actual manifest hash")
 
+    if execution_evidence is not None:
+        if not _is_mapping(execution_evidence):
+            errors.append("execution_evidence must be an object")
+        else:
+            for arm in ("control", "treatment"):
+                arm_evidence = execution_evidence.get(arm)
+                if not _is_mapping(arm_evidence):
+                    errors.append(f"{arm} execution evidence is required")
+                elif arm_evidence.get("valid_for_pair") is not True:
+                    arm_errors = arm_evidence.get("errors", [])
+                    if isinstance(arm_errors, list) and arm_errors:
+                        errors.extend(
+                            f"{arm} execution evidence: {item}"
+                            for item in arm_errors
+                            if isinstance(item, str) and item.strip()
+                        )
+                    else:
+                        errors.append(f"{arm} execution evidence is not valid")
+
     task_id = control_run.task_id
     shared_identity = _configuration_identity(control_run, control_task_artifact)
     status = "VALID" if not errors else "PROTOCOL_FAILURE"
@@ -2098,6 +2126,238 @@ def validate_paired_runs(
         errors=errors,
         control_observed_model_identity=control_observed,
         treatment_observed_model_identity=treatment_observed,
+        execution_evidence=dict(execution_evidence or {}),
+    )
+
+
+def inspect_real_execution_artifacts(run_dir: str | Path) -> dict[str, Any]:
+    """Check that one arm contains real observable execution evidence."""
+
+    root = Path(run_dir).resolve()
+    errors: list[str] = []
+    required = (
+        "experiment_run.json",
+        "agent_result.json",
+        "oracle_result.json",
+        "utility_evidence.json",
+        "trace.jsonl",
+    )
+    loaded: dict[str, Any] = {}
+    for name in required:
+        path = root / name
+        if not path.is_file():
+            errors.append(f"missing {name}")
+            continue
+        try:
+            if name.endswith(".jsonl"):
+                loaded[name] = [
+                    json.loads(line)
+                    for line in path.read_text(encoding="utf-8").splitlines()
+                    if line.strip()
+                ]
+            else:
+                loaded[name] = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            errors.append(f"invalid {name}: {type(error).__name__}")
+
+    agent_result = loaded.get("agent_result.json")
+    result = agent_result.get("result") if _is_mapping(agent_result) else None
+    response_observations = (
+        result.get("model_response_observations")
+        if _is_mapping(result)
+        else None
+    )
+    observable_response = isinstance(response_observations, list) and bool(
+        response_observations
+    )
+    if not observable_response:
+        errors.append("no observable host model response")
+    outcome_observable = _is_mapping(result) and isinstance(
+        result.get("workspace_reference"), str
+    )
+    if not outcome_observable:
+        errors.append("repository/task outcome is not observable")
+
+    events = loaded.get("trace.jsonl", [])
+    event_names = {
+        item.get("event")
+        for item in events
+        if _is_mapping(item)
+    }
+    if "agent_start" not in event_names:
+        errors.append("trace is missing agent_start")
+    if not event_names.intersection({"completion", "failure"}):
+        errors.append("trace is missing terminal execution event")
+
+    oracle = loaded.get("oracle_result.json")
+    oracle_executed = (
+        _is_mapping(oracle) and oracle.get("evaluator_valid") is True
+    )
+    if not oracle_executed:
+        errors.append("oracle did not execute successfully")
+
+    evidence = loaded.get("utility_evidence.json")
+    if (
+        _is_mapping(evidence)
+        and evidence.get("evidence_validity") == "PROTOCOL_FAILURE"
+    ):
+        errors.append("utility evidence is protocol_failure")
+
+    return {
+        "run_dir": str(root),
+        "actual_host_execution": observable_response,
+        "observable_response": observable_response,
+        "outcome_observable": outcome_observable,
+        "oracle_executed": oracle_executed,
+        "valid_for_pair": not errors,
+        "errors": errors,
+    }
+
+
+def validate_real_paired_runs(
+    control: ExperimentRun | Mapping[str, Any],
+    treatment: ExperimentRun | Mapping[str, Any],
+    *,
+    control_task: TaskArtifact | Mapping[str, Any],
+    treatment_task: TaskArtifact | Mapping[str, Any],
+    control_run_dir: str | Path,
+    treatment_run_dir: str | Path,
+) -> PairValidationResult:
+    """Validate parity and require real observable evidence for both arms."""
+
+    execution_evidence = {
+        "control": inspect_real_execution_artifacts(control_run_dir),
+        "treatment": inspect_real_execution_artifacts(treatment_run_dir),
+    }
+    return validate_paired_runs(
+        control,
+        treatment,
+        control_task=control_task,
+        treatment_task=treatment_task,
+        execution_evidence=execution_evidence,
+    )
+
+
+@dataclass(frozen=True)
+class UtilityConclusion:
+    """Conservative first-pair conclusion; no universal utility scalar."""
+
+    conclusion: str
+    scope: Mapping[str, Any]
+    control_outcome: Mapping[str, Any]
+    treatment_outcome: Mapping[str, Any]
+    trajectory_difference: Mapping[str, Any]
+    cost_difference: Mapping[str, Any]
+    limitations: list[str]
+
+    def __post_init__(self) -> None:
+        if self.conclusion not in UTILITY_CONCLUSIONS:
+            raise ValueError(f"unsupported utility conclusion: {self.conclusion}")
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": "utility.conclusion.first-pair.v0",
+            "conclusion": self.conclusion,
+            "scope": dict(self.scope),
+            "control_outcome": dict(self.control_outcome),
+            "treatment_outcome": dict(self.treatment_outcome),
+            "trajectory_difference": dict(self.trajectory_difference),
+            "cost_difference": dict(self.cost_difference),
+            "limitations": list(self.limitations),
+        }
+
+
+def conclude_first_pair(
+    pair: PairValidationResult | Mapping[str, Any],
+    control_evidence: UtilityEvidence | Mapping[str, Any],
+    treatment_evidence: UtilityEvidence | Mapping[str, Any],
+    *,
+    scope: Mapping[str, Any],
+    limitations: Sequence[str] = (),
+) -> UtilityConclusion:
+    """Apply the frozen outcome-first rules for exactly one causal pair."""
+
+    pair_status = (
+        pair.pair_status
+        if isinstance(pair, PairValidationResult)
+        else pair.get("pair_status")
+    )
+    control = (
+        control_evidence.as_dict()
+        if isinstance(control_evidence, UtilityEvidence)
+        else dict(control_evidence)
+    )
+    treatment = (
+        treatment_evidence.as_dict()
+        if isinstance(treatment_evidence, UtilityEvidence)
+        else dict(treatment_evidence)
+    )
+    control_outcome = dict(control.get("outcome", {}))
+    treatment_outcome = dict(treatment.get("outcome", {}))
+    valid_evidence = (
+        pair_status == "VALID"
+        and control.get("evidence_validity") == "VALID"
+        and treatment.get("evidence_validity") == "VALID"
+    )
+    control_pass = (
+        control_outcome.get("success") is True
+        and control_outcome.get("regression") is False
+        and control_outcome.get("evaluator_valid") is True
+    )
+    treatment_pass = (
+        treatment_outcome.get("success") is True
+        and treatment_outcome.get("regression") is False
+        and treatment_outcome.get("evaluator_valid") is True
+    )
+    control_fail = (
+        control_outcome.get("evaluator_valid") is True
+        and (
+            control_outcome.get("success") is False
+            or control_outcome.get("regression") is True
+        )
+    )
+    treatment_fail = (
+        treatment_outcome.get("evaluator_valid") is True
+        and (
+            treatment_outcome.get("success") is False
+            or treatment_outcome.get("regression") is True
+        )
+    )
+    if not valid_evidence:
+        conclusion = "PROTOCOL_FAILURE"
+    elif treatment_pass and control_fail:
+        conclusion = "HELPS"
+    elif control_pass and treatment_fail:
+        conclusion = "HURTS"
+    elif control_pass and treatment_pass:
+        conclusion = "NEUTRAL"
+    else:
+        conclusion = "INCONCLUSIVE"
+
+    control_trajectory = dict(control.get("trajectory", {}))
+    treatment_trajectory = dict(treatment.get("trajectory", {}))
+    control_cost = dict(control.get("cost", {}))
+    treatment_cost = dict(treatment.get("cost", {}))
+    trajectory_difference = {
+        key: treatment_trajectory.get(key) - control_trajectory.get(key)
+        for key in ("steps", "tool_calls", "verification_count")
+        if isinstance(treatment_trajectory.get(key), (int, float))
+        and isinstance(control_trajectory.get(key), (int, float))
+    }
+    cost_difference = {
+        key: treatment_cost.get(key) - control_cost.get(key)
+        for key in ("tokens", "latency_ms")
+        if isinstance(treatment_cost.get(key), (int, float))
+        and isinstance(control_cost.get(key), (int, float))
+    }
+    return UtilityConclusion(
+        conclusion=conclusion,
+        scope=dict(scope),
+        control_outcome=control_outcome,
+        treatment_outcome=treatment_outcome,
+        trajectory_difference=trajectory_difference,
+        cost_difference=cost_difference,
+        limitations=list(limitations),
     )
 
 

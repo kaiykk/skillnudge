@@ -1,0 +1,43 @@
+{
+  "schema_version": "task.artifact.phase2.first-pair.v0",
+  "task_id": "phase2-first-native-planning-contract-discoverability-001",
+  "repository": "SkillNudge",
+  "source_repository": "https://github.com/kaiykk/skillnudge",
+  "original_source_commit": "865bfdf191ce5d6be1aa3451e7767f063705c0ef",
+  "source_tree_hash": "55405774e01befaa2fe8ff84acb7dae192a42eed",
+  "sanitized_snapshot_strategy": "git-archive-tree-into-fresh-single-commit-repository",
+  "sanitized_snapshot_leakage_checks": [
+    "git log contains only the fresh experiment base commit",
+    "target commit 869484cf19bd7589c7981e96f5417687166773bc is not an object",
+    "target commit hash and patch are absent from the agent-visible tree"
+  ],
+  "agent_visible_task": {
+    "description": "The native host-facing planning contract is not sufficiently discoverable. Update the public native Skill contract so a host can construct valid Capability Framing, Intervention Plan, and Query Plan objects without guessing required fields or enum values. Keep the Python validators as the enforcement source, keep the provider-free native retrieval path unchanged, and add a focused regression test that prevents documented enum values from drifting from validator-accepted values. Preserve existing behavior and run the full test suite.",
+    "visible_test_command": "python3 -m unittest discover -s tests -p 'test_*.py' -v",
+    "visible_repository_identity": "SkillNudge",
+    "visible_base_commit_label": "the declared repository base commit"
+  },
+  "environment_identity": "4dea58e605d9ba2ffc63d084583b2cc8c2df9b2ec8a063c57d80c49f338bd979",
+  "reference_host": "Codex",
+  "intervention_identity": "systematic-debugging-superpowers-v6.4.1-source-unit",
+  "evaluator_version": "native-planning-contract-discoverability-oracle-v0.1",
+  "oracle_visibility": "evaluator-only",
+  "frozen_ground_truth": {
+    "capability_framing.confidence": ["high", "low", "medium"],
+    "intervention_plan.decision": ["clarify", "no_intervention", "search"],
+    "intervention_plan.targets[].family": ["integration", "resource", "skill"],
+    "intervention_plan.targets[].priority": ["companion", "primary", "secondary"],
+    "query_plan.status": ["clarify", "ready", "skipped"],
+    "query_plan.queries[].family": ["integration", "resource", "skill"],
+    "query_plan.queries[].angle": ["capability", "operation", "outcome", "problem", "professional_vocabulary", "stage"]
+  },
+  "control": {
+    "skill": null
+  },
+  "treatment": {
+    "skill": "systematic-debugging-v6.4.1"
+  },
+  "target_commit_for_provenance_only": "869484cf19bd7589c7981e96f5417687166773bc",
+  "target_commit_visibility": "forbidden",
+  "not_generalized": true
+}

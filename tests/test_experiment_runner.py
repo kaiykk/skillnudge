@@ -14,6 +14,7 @@ from skillnudge.experiment_runner import (
     ExecutionBudget,
     ExecutionPolicy,
     Condition,
+    conclude_first_pair,
     ExperimentRun,
     ExperimentRunError,
     ExperimentRunner,
@@ -30,8 +31,10 @@ from skillnudge.experiment_runner import (
     FROZEN_SKILL_MANIFEST_SHA256,
     FROZEN_SKILL_SOURCE_PATHS,
     fixture_skill_payload,
+    inspect_real_execution_artifacts,
     validate_pair_manifest,
     validate_paired_runs,
+    validate_real_paired_runs,
     validate_experiment_run,
     validate_trace_event,
     validate_utility_evidence,
@@ -319,6 +322,85 @@ class ExperimentRunnerTests(unittest.TestCase):
             self.assertEqual(
                 control.run.artifact_verification["mode"], "none"
             )
+
+    def test_real_pair_gate_rejects_fixture_without_host_response(self):
+        with tempfile.TemporaryDirectory() as directory:
+            control, treatment = self._paired_results(directory)
+            result = validate_real_paired_runs(
+                control.run,
+                treatment.run,
+                control_task=_task(),
+                treatment_task=_task(),
+                control_run_dir=control.run_dir,
+                treatment_run_dir=treatment.run_dir,
+            )
+            self.assertEqual(result.pair_status, "PROTOCOL_FAILURE")
+            self.assertTrue(
+                any(
+                    "no observable host model response" in error
+                    for error in result.errors
+                ),
+                result.errors,
+            )
+            self.assertFalse(
+                result.execution_evidence["control"]["valid_for_pair"]
+            )
+
+    def test_first_pair_conclusion_is_outcome_first(self):
+        pair = {"pair_status": "VALID"}
+
+        def evidence(*, success, regression=False, steps=2, tokens=10):
+            return {
+                "evidence_validity": "VALID",
+                "outcome": {
+                    "success": success,
+                    "regression": regression,
+                    "evaluator_valid": True,
+                },
+                "trajectory": {
+                    "steps": steps,
+                    "tool_calls": steps,
+                    "verification_count": 1,
+                },
+                "cost": {"tokens": tokens, "latency_ms": 20.0},
+            }
+
+        self.assertEqual(
+            conclude_first_pair(
+                pair,
+                evidence(success=False),
+                evidence(success=True, steps=3, tokens=12),
+                scope={"task_id": "task-001"},
+            ).conclusion,
+            "HELPS",
+        )
+        self.assertEqual(
+            conclude_first_pair(
+                pair,
+                evidence(success=True),
+                evidence(success=False, steps=3, tokens=12),
+                scope={"task_id": "task-001"},
+            ).conclusion,
+            "HURTS",
+        )
+        self.assertEqual(
+            conclude_first_pair(
+                pair,
+                evidence(success=True),
+                evidence(success=True, steps=3, tokens=12),
+                scope={"task_id": "task-001"},
+            ).conclusion,
+            "NEUTRAL",
+        )
+        self.assertEqual(
+            conclude_first_pair(
+                {"pair_status": "PROTOCOL_FAILURE"},
+                evidence(success=True),
+                evidence(success=True),
+                scope={"task_id": "task-001"},
+            ).conclusion,
+            "PROTOCOL_FAILURE",
+        )
 
     def test_pair_validator_rejects_each_load_bearing_mismatch(self):
         mismatch_values = (
