@@ -51,6 +51,19 @@ Embedding 仍应是可选能力，不应成为普通开发者的安装前提。
 
 这些都不属于 Week 1。
 
+### Phase 3 Model Track Gate
+
+Before implementing Review/Grow behavior, Phase 3 must first establish a
+scenario-aware Capability Gap Registry from real experience evidence. Its
+output is an evidence-backed evolution hypothesis, not a modified Skill or
+Variant. The minimum semantic contract, Discovery Oracle boundary, stop
+conditions, and Phase 4/Darwin boundary are recorded in
+[`docs/research/phase3-capability-gap-evidence-gate-v0.1.md`](research/phase3-capability-gap-evidence-gate-v0.1.md).
+
+This gate intentionally does not freeze a minimum sample count, confidence
+threshold, aggregation formula, automatic stop algorithm, Variant schema, or
+lifecycle threshold.
+
 ## Long-Term — Skill Utility Drift
 
 `[FUTURE]` 随着 foundation model 能力增强：

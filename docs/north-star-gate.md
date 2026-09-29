@@ -691,3 +691,35 @@ What lifecycle action follows?
 
 If those questions cannot be answered, the work may remain exploratory
 research, but it must not be presented as Capability Lifecycle Evaluation.
+
+## 8. Phase 3 Model Track Gate
+
+Phase 3 is not a second Capability Discovery phase and does not begin Skill
+evolution. Its bounded question is:
+
+> Which capability gap, if any, is supported by real agent experience evidence?
+
+The Phase 3 output is a Capability Gap Registry plus an evidence-backed
+evolution hypothesis. Each hypothesis must preserve scenario-aware experience
+identity, failure/success pattern, outcome impact, and alternative attribution.
+
+Phase 3 uses a Discovery Oracle that classifies only:
+
+```text
+SUPPORTED | INSUFFICIENT | TASK_SPECIFIC_NOISE | UNCLEAR
+```
+
+The Discovery Oracle does not judge utility, generate a Variant, or make a
+lifecycle decision. Phase 3 must not modify a Source Skill, run Darwin,
+generate a Variant, perform mutation/selection, or start an automatic
+evolution loop.
+
+The semantic cardinality is one capability-gap hypothesis to many
+scenario-aware experiences. Numeric minimums, confidence thresholds,
+aggregation formulas, and automatic stopping algorithms remain unfrozen until
+real Phase 3 evidence and a new Model Review exist.
+
+Darwin is positioned in Phase 4 as an authorized Evolution Operator, after a
+Principal-reviewed Phase 3 hypothesis and before held-out evaluation. The
+canonical gate is
+[`docs/research/phase3-capability-gap-evidence-gate-v0.1.md`](research/phase3-capability-gap-evidence-gate-v0.1.md).
