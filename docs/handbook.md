@@ -1,7 +1,7 @@
 # SkillNudge Project Handbook
 
 **Status:** Canonical project operating guide
-**Last updated:** 2026-09-21
+**Last updated:** 2026-10-04
 
 ## Active Current Outcome
 
@@ -52,12 +52,22 @@ credential was required.
 - installed Codex discovery and explicit invocation were demonstrated;
 - the default corpus/index produced a real hydrated evidence set.
 
-**No new Current Outcome has been started.** The project remains at the
-completed Phase 1 Native MVP boundary while the following items stay in the
-Parking Lot: Test 5 meta-workflow / underlying-task capability confusion;
-candidate evidence-boundary leakage involving locally known skills; retrieval
-top-k relevance drift; `complete_unverified` provenance; corpus coverage gaps;
-cross-host validation; and Phase 2 evaluation work.
+The Phase 1 Native MVP remains the only shipped runtime Current Outcome. The
+research track has since completed a bounded Phase 3 capability-gap diagnosis
+without establishing a reusable gap, and has begun static Phase 4A entry
+hardening / contract-readiness work. These are product-relevant research
+milestones, not a replacement runtime outcome: no Phase 4A runtime, Variant
+promotion, or automatic evolution loop is shipped by this status update.
+
+The following remain in the Parking Lot or under separate research review: Test
+5 meta-workflow / underlying-task capability confusion; candidate
+evidence-boundary leakage involving locally known skills; retrieval top-k
+relevance drift; `complete_unverified` provenance; corpus coverage gaps;
+cross-host validation; universal utility evaluation; and capability evolution.
+
+The product-facing status is maintained in
+[`docs/current-status.md`](current-status.md). Research receipts and governance
+artifacts remain in the separate Home Project repository.
 
 **Not required for this outcome:**
 

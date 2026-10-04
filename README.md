@@ -182,6 +182,14 @@ not imply that evaluation or capability evolution is implemented today.
 
 ## Current Status
 
+**Product status as of 2026-10-04:** the Phase 1 Native MVP remains the shipped
+runtime baseline. Phase 3 bounded capability-gap diagnosis is complete for its
+current research scope without establishing a reusable capability gap or Skill
+defect. Phase 4A has started controlled entry hardening and contract-readiness
+work; it has not shipped a new runtime, promoted a Variant, or authorized a
+new Control/Treatment run. See [`docs/current-status.md`](docs/current-status.md)
+and [`docs/product-delivery-sync.md`](docs/product-delivery-sync.md).
+
 ### Working today
 
 - Capability Framing
@@ -197,11 +205,20 @@ not imply that evaluation or capability evolution is implemented today.
 
 - Phase 1 D001 / D002 / D003 release-readiness validation is complete
 
-### Not yet
+### Research track status
+
+- Phase 2 measurement remains scoped to its tested conditions; no universal
+  utility conclusion is established
+- Phase 3 diagnosis is complete for the current bounded evidence campaign;
+  `reusable_capability_gap=INSUFFICIENT`
+- Phase 4A entry hardening is in progress as static contract/readiness work
+
+### Not yet shipped
 
 - Utility evaluation and Skill Utility Drift detection
 - Capability evolution
 - Review, Grow, and Watch
+- Phase 4A runtime execution, Variant promotion, or Darwin/SkillOpt evolution
 
 The repository is an early implementation baseline, not a complete product or
 a product-quality benchmark.

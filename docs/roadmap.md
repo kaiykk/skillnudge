@@ -2,8 +2,10 @@
 
 ## Status
 
-这是范围方向，不是已实现功能清单。所有未来阶段都是 `[FUTURE]` 或
-`[WORKING HYPOTHESIS]`，不应写成当前能力。
+这是范围方向，不是完整的已实现功能清单。运行时功能仍按 `[FUTURE]` 或
+`[WORKING HYPOTHESIS]` 标记；当前研究轨迹状态见
+[`docs/current-status.md`](current-status.md)，不能把研究完成误写成 runtime
+完成。
 
 ## V0 — Lightweight Intervention Advisor
 
@@ -40,6 +42,13 @@ source coverage 或 query planning 问题时，才考虑：
 - semantic reranking。
 
 Embedding 仍应是可选能力，不应成为普通开发者的安装前提。
+
+## Research track position (2026-10-04)
+
+Phase 3 的当前有边界 evidence accumulation and diagnosis campaign 已完成，
+结果为没有建立可复用 capability gap。Phase 4A 已进入 controlled
+entry-hardening / contract-readiness 工作，但没有授权新的运行时实现、Variant
+promotion 或 Control/Treatment 执行。
 
 ## Later — Review / Grow / Watch
 

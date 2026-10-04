@@ -179,6 +179,13 @@ Capability Control Plane
 
 ## 当前状态
 
+**截至 2026-10-04 的产品状态：** Phase 1 Native MVP 仍是当前已发布的运行时基线。
+Phase 3 的有边界能力缺口诊断已完成当前研究范围，但没有建立可复用的
+capability gap 或 Skill defect。Phase 4A 已开始受控的 entry hardening 和
+contract readiness 工作；尚未发布新的 runtime、推广 Variant，也没有授权新的
+Control/Treatment 运行。详见 [`docs/current-status.md`](docs/current-status.md) 和
+[`docs/product-delivery-sync.md`](docs/product-delivery-sync.md)。
+
 ### 当前可用
 
 - Capability Framing
@@ -194,11 +201,19 @@ Capability Control Plane
 
 - Phase 1 D001 / D002 / D003 发布就绪验证已完成
 
-### 尚未提供
+### 研究阶段状态
+
+- Phase 2 measurement 仍然只适用于已测试条件，没有建立普遍性的 utility 结论
+- Phase 3 当前有边界的 evidence diagnosis campaign 已完成；
+  `reusable_capability_gap=INSUFFICIENT`
+- Phase 4A 正在进行静态 contract/readiness 的 entry hardening
+
+### 尚未发布
 
 - Utility 评估与 Skill Utility Drift 检测
 - 能力演化
 - Review、Grow、Watch
+- Phase 4A runtime、Variant promotion 或 Darwin/SkillOpt evolution
 
 当前仓库是早期实现基线，还不是完整产品，也不是产品质量 benchmark。
 
