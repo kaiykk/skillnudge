@@ -5,7 +5,7 @@
 
 ## Active Current Outcome
 
-**Status:** ACTIVE / IMPLEMENTED_BOUNDED_MVP
+**Status:** IMPLEMENTED_BOUNDED_MVP
 
 **Milestone:** Native Review + Validate MVP — CLOSED for the current vertical slice
 
@@ -86,10 +86,12 @@ artifacts remain in the separate Home Project repository.
 - implicit triggering;
 - benchmark-level evaluation.
 
-This Review + Validate MVP is the current project GPS coordinate for this
-product slice. Do not infer universal utility or evolution outcomes from internal
-implementation progress, completed documentation, or passing tests. A new
-Current Outcome requires an explicit project decision.
+The canonical product GPS is the lifecycle in
+[`docs/north-star.md`](north-star.md); the current shipped coordinate is the
+bounded ADVISE / REVIEW / VALIDATE slice. Do not infer universal utility or
+evolution outcomes from internal implementation progress, completed
+documentation, or passing tests. A new Current Outcome requires an explicit
+project decision.
 
 ## Host-Native Product Invariant
 

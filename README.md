@@ -26,12 +26,13 @@
   </p>
 </div>
 
-<!-- Official Week 1 hero image. -->
+<!-- Official SkillNudge hero image. -->
 <p align="center">
   <img src="./assets/hero.png" alt="SkillNudge" width="100%">
 </p>
 
-SkillNudge is a local-first capability intervention advisor for AI agents.
+SkillNudge is a local-first, evidence-driven capability lifecycle for AI
+agents.
 
 It helps answer a question that Skill search alone cannot:
 
@@ -77,7 +78,8 @@ Return zero to two bounded recommendations, or explicitly recommend nothing.
 These are the target V0 capabilities. The current repository contains the
 planning, local retrieval, evidence hydration, Candidate Judgement / Final
 Advice runtime surfaces, and a composed development `advise` CLI. Phase 1
-release-readiness validation is complete within the current Week 1 envelope.
+release-readiness validation is complete within the current bounded product
+envelope.
 
 ## Quick Start
 
@@ -161,7 +163,7 @@ Discovery
 Evidence
   -> candidate body + retrieval evidence + explicit provenance gaps
 Judge
-  -> implemented runtime surface; Week 1 provider-backed validation complete
+  -> bounded provider-free Native Review / Validate product surface
 ```
 
 No recommendation is fabricated here. D001 is a bounded design probe, not a
@@ -177,22 +179,17 @@ hard-coded answer. See [`docs/golden-cases.md`](docs/golden-cases.md).
 
 ## North Star
 
-SkillNudge is starting as a capability intervention advisor.
-
-Longer term, the project is organized around three layers:
+SkillNudge is an evidence-driven capability lifecycle:
 
 ```text
-Capability Control Plane
-  -> Eval / Utility Layer
-  -> Capability Evolution Loop
+ADVISE -> REVIEW -> VALIDATE -> EVOLVE -> VALIDATE AGAIN
+       -> PROMOTE / ROLLBACK / RETIRE
 ```
 
-The long-term question is not only “What Skill should I use?” It is also:
-
-> **Does this capability still help this model, in this harness, on this task?**
-
-Read the full [North Star](docs/north-star.md). The long-term direction does
-not imply that evaluation or capability evolution is implemented today.
+The current shipped slice ends at bounded REVIEW and VALIDATE. EVOLVE is not
+implemented. Read the [North Star](docs/north-star.md) and the
+[North Star Experience Reference](docs/north-star-experience.md) for the
+canonical product direction and user-facing meaning.
 
 ## Current Status
 
@@ -246,6 +243,7 @@ a product-quality benchmark.
 Four entry points cover the main project context:
 
 - [North Star](docs/north-star.md)
+- [North Star Experience Reference](docs/north-star-experience.md)
 - [Architecture & Runtime](docs/architecture.md)
 - [Contracts](docs/contracts/README.md)
 - [Research](docs/research/README.md)
@@ -256,22 +254,23 @@ Four entry points cover the main project context:
 
 ### Now
 
-Capability intervention:
-
 ```text
-understand -> discover -> judge -> advise
+ADVISE -> REVIEW -> VALIDATE
 ```
+
+The bounded Native Review and Validate MVPs are shipped and scoped to their
+observed experience or tested pair.
 
 ### Next
 
-Measure whether interventions actually improve downstream trajectories.
+Define and implement candidate-only EVOLVE behavior only after the required
+product contract and Principal review. It must preserve lineage and use the
+existing bounded Validate surface again.
 
 ### Later
 
-Detect Skill Utility Drift and evaluate whether to evolve, compress, replace,
-or retire capabilities.
-
-These are directional stages, not completed features.
+Validate candidate versions again, then support Human-owned promote, rollback,
+or retire decisions and cross-cutting utility-drift observation.
 
 ## Contributing
 
@@ -280,7 +279,7 @@ current documentation and keep implemented behavior separate from proposed
 behavior.
 
 Good contributions are narrow, falsifiable, evidence-aware, and compatible
-with the local-first Week 1 boundary.
+with the current bounded product boundary.
 
 For local validation:
 

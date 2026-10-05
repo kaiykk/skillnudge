@@ -3,6 +3,8 @@
 **Status:** canonical product direction
 **Updated:** 2026-10-05
 
+The user-facing experience reference is [`north-star-experience.md`](north-star-experience.md).
+
 ## 1. Core Problem / Thesis
 
 External capability utility is contextual and non-stationary.
@@ -116,10 +118,11 @@ Current Review and Validate results are scoped to their observed experience or
 tested pair. They do not establish universal utility, a reusable capability
 gap, production promotion, or automatic Skill mutation.
 
-The next lifecycle work may define a minimal versioned instruction candidate,
-candidate-only EVOLVE behavior, and Validate-again semantics. Those decisions
-must remain evidence-gated and Principal-reviewed. No candidate is installed,
-activated, overwritten, promoted, rolled back, or retired automatically.
+A future Principal-authorized product decision may define a minimal versioned
+instruction candidate, candidate-only EVOLVE behavior, and Validate-again
+semantics. Those decisions must remain evidence-gated and Principal-reviewed.
+No candidate is installed, activated, overwritten, promoted, rolled back, or
+retired automatically.
 
 The following remain outside the current product runtime boundary:
 

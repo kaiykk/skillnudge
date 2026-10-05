@@ -2,10 +2,10 @@
 
 ## Status
 
-这是范围方向，不是完整的已实现功能清单。除当前 Product Outcome 外，运行时功能仍按 `[FUTURE]` 或
-`[WORKING HYPOTHESIS]` 标记；当前研究轨迹状态见
-[`docs/current-status.md`](current-status.md)，不能把研究完成误写成 runtime
-完成。
+这是产品交付方向，不是完整的已实现功能清单。当前 runtime truth 见
+[`docs/current-status.md`](current-status.md) 和
+[`docs/north-star.md`](north-star.md)。Home Project 的研究材料只提供历史
+证据输入，不是 SkillNudge runtime 依赖或当前产品 GPS。
 
 ## Current Product Outcome (2026-10-05)
 
@@ -22,7 +22,7 @@ records with an observable Oracle and returns a scoped `HELPS`, `NEUTRAL`,
 `HURTS`, `INCONCLUSIVE`, or `NOT_EVALUATED` result. It does not promote or
 rewrite a Skill.
 
-## V0 — Lightweight Intervention Advisor
+## Shipped baseline — ADVISE / REVIEW / VALIDATE
 
 `[FROZEN]` 第一阶段只验证：
 
@@ -34,7 +34,7 @@ rewrite a Skill.
 - 输出少量、可解释的建议；
 - 保留可复查 Trace。
 
-V0 不包括完整 lifecycle。
+这部分是当前 bounded product slice；EVOLVE 尚未实现。
 
 ## V0.5 — Retrieval Quality / Corpus Freshness
 
@@ -58,41 +58,47 @@ source coverage 或 query planning 问题时，才考虑：
 
 Embedding 仍应是可选能力，不应成为普通开发者的安装前提。
 
-## Research track position (2026-10-05)
+## Historical research input (2026-10-05)
 
 Phase 3 的当前有边界 evidence accumulation and diagnosis campaign 已完成，
 结果为没有建立可复用 capability gap。Phase 4A 已进入 controlled
 entry-hardening / contract-readiness 工作，但没有授权新的 Variant promotion、
 Control/Treatment 执行或产品 evolution runtime。历史研究结论只约束产品边界，
-不替代产品 runtime 的 Review MVP。
+不替代产品 runtime 的 Review / Validate MVP，也不构成 runtime prerequisite。
+
+```yaml
+home_project:
+  role: HISTORICAL_INPUT_ONLY
+  runtime_dependency: NONE
+```
 
 ## Next — Principal Review of Validate Receipt
 
-`[CURRENT]` Review → Validate 的首个 bounded receipt 完成后，Principal
-需要审阅 pair validity、Oracle 和 scoped outcome；不得将单个 pair 泛化为
-通用 utility 或自动进入 EVOLVE。
+`[CURRENT]` The existing bounded Review → Validate receipt requires Principal
+review of pair validity, Oracle, and scoped outcome. This is a separate
+decision from Tickets A/B; it must not turn one pair into universal utility or
+automatically open EVOLVE.
 
-## Later — Grow / Watch
+## Later — EVOLVE / WATCH
 
-`[FUTURE]` Grow、Watch 属于长期能力地图：
+`[FUTURE]` EVOLVE、WATCH 属于后续能力地图：
 
-- Grow：在证据和用户批准下改进、简化或扩展 local Variant；
+- EVOLVE：在有效 bounded validation evidence 后提出 candidate-only 版本；
 - Watch：观察 model、version、source 和 compatibility drift。
 
-这些都不属于 Week 1。
+EVOLVE remains candidate-only until implemented and Principal-reviewed. WATCH
+is cross-cutting and is not a sequential phase.
 
-### Phase 3 Model Track Gate
+### Historical Phase 3 research boundary
 
-Before implementing Grow/Evolve behavior, Phase 3 must first establish a
-scenario-aware Capability Gap Registry from real experience evidence. Its
-output is an evidence-backed evolution hypothesis, not a modified Skill or
-Variant. The minimum semantic contract, Discovery Oracle boundary, stop
-conditions, and Phase 4/Darwin boundary are recorded in
+The completed Phase 3 campaign established an evidence and attribution
+boundary but did not establish a reusable capability gap. Its historical
+contract is recorded in
 [`docs/research/phase3-capability-gap-evidence-gate-v0.1.md`](research/phase3-capability-gap-evidence-gate-v0.1.md).
 
-This gate intentionally does not freeze a minimum sample count, confidence
-threshold, aggregation formula, automatic stop algorithm, Variant schema, or
-lifecycle threshold.
+That historical research result is not a requirement for a product EVOLVE
+runtime and does not authorize a Capability Gap Registry, aggregation, or
+automatic evolution.
 
 ## Long-Term — Skill Utility Drift
 

@@ -26,12 +26,12 @@
   </p>
 </div>
 
-<!-- Week 1 官方 Hero 图片。 -->
+<!-- SkillNudge 官方 Hero 图片。 -->
 <p align="center">
   <img src="./assets/hero.png" alt="SkillNudge" width="100%">
 </p>
 
-SkillNudge 是一个面向 AI Agent 的本地优先能力介入建议工具。
+SkillNudge 是一个面向 AI Agent 的本地优先、证据驱动能力生命周期。
 
 它试图回答一个仅靠 Skill 搜索无法回答的问题：
 
@@ -74,7 +74,7 @@ SkillNudge 进一步追问：
 
 这些是 V0 的目标能力。当前仓库已经包含 planning、本地检索、Evidence
 Hydration、Candidate Judgement / Final Advice 运行时，以及组合后的开发态
-`advise` CLI。Phase 1 已在当前 Week 1 边界内完成发布就绪验证。
+`advise` CLI。Phase 1 已在当前 bounded product 边界内完成发布就绪验证。
 
 ## 快速开始
 
@@ -156,7 +156,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py' -v
 证据
   -> 候选正文 + 检索证据 + 明确的 provenance 缺口
 Judge
-  -> 运行时已实现；provider-backed 验证进行中
+  -> bounded provider-free Native Review / Validate 产品面
 ```
 
 这里不会虚构某个推荐结果。D001 是有边界的设计探针，不是写死的答案。详见
@@ -172,22 +172,16 @@ Judge
 
 ## North Star
 
-SkillNudge 现在从能力介入建议工具开始。
-
-更长期的方向可以分成三层：
+SkillNudge 是一个证据驱动的能力生命周期：
 
 ```text
-Capability Control Plane
-  -> Eval / Utility Layer
-  -> Capability Evolution Loop
+ADVISE -> REVIEW -> VALIDATE -> EVOLVE -> VALIDATE AGAIN
+       -> PROMOTE / ROLLBACK / RETIRE
 ```
 
-长期问题不只是“我应该使用哪个 Skill”，还包括：
-
-> **这个能力在当前模型、当前 harness、当前任务上，是否仍然有帮助？**
-
-完整方向见 [North Star](docs/north-star.md)。这不代表 Eval 或能力演化今天已经
-实现。
+当前已经发布的 bounded slice 到 REVIEW / VALIDATE 为止，EVOLVE 尚未实现。
+完整方向与用户体验含义见 [North Star](docs/north-star.md) 和
+[North Star Experience Reference](docs/north-star-experience.md)。
 
 ## 当前状态
 
@@ -237,6 +231,7 @@ Capability Control Plane
 四个入口覆盖主要项目背景：
 
 - [North Star](docs/north-star.md)
+- [North Star Experience Reference](docs/north-star-experience.md)
 - [Architecture & Runtime](docs/architecture.md)
 - [Contracts](docs/contracts/README.md)
 - [Research](docs/research/README.md)
@@ -247,28 +242,30 @@ Capability Control Plane
 
 ### Now
 
-能力介入：
-
 ```text
-understand -> discover -> judge -> advise
+ADVISE -> REVIEW -> VALIDATE
 ```
+
+当前 bounded Native Review / Validate MVP 已发布，结论只适用于对应的
+experience 或 tested pair。
 
 ### Next
 
-测量介入是否真的改善了下游任务轨迹。
+在完成产品契约并经过 Principal review 后，定义并实现 candidate-only
+EVOLVE；它必须保留 lineage，并复用现有 bounded Validate surface。
 
 ### Later
 
-检测 Skill Utility Drift，并评估是否需要演化、压缩、替换或退役某种能力。
-
-这些是方向阶段，不是已经完成的功能。
+再次验证 candidate version，然后支持 Human-owned promote、rollback、retire
+和 cross-cutting utility-drift observation。
 
 ## 参与贡献
 
 SkillNudge 仍处于早期开源阶段。提交变更前，请先阅读当前文档，并明确区分已实现
 行为和提议行为。
 
-欢迎范围窄、可以证伪、尊重证据与不确定性，并且符合本地优先 Week 1 边界的贡献。
+欢迎范围窄、可以证伪、尊重证据与不确定性，并且符合当前 bounded product
+边界的贡献。
 
 本地验证：
 

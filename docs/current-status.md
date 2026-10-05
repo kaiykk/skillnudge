@@ -2,8 +2,9 @@
 
 **As of:** 2026-10-05
 **Scope:** SkillNudge product repository
-**Evidence detail:** Home Project research receipts; this file is the
-product-facing summary and does not replace those receipts.
+**Evidence detail:** Detailed research receipts remain historical inputs in
+Home Project; this file is the product-facing summary and does not replace
+those receipts. Home Project is not a SkillNudge runtime dependency.
 
 ## Product/runtime baseline
 
@@ -21,7 +22,7 @@ and the bounded Native Review MVP:
   frozen task, exact instruction identity, parity-controlled Control/Treatment
   records, and an observable Oracle.
 
-### Current Outcome — Native Review MVP
+### Current Outcome — Native Review + Validate MVP
 
 ```yaml
 current_outcome: REVIEW_VALIDATE_MVP
@@ -114,6 +115,13 @@ into this product repository.
 
 ## Product-facing next step
 
-The next product slice is a controlled Principal review of the first Validate
-receipt. It must not turn one pair into universal utility, cross-session
-aggregation, Variant generation, or an evolution loop.
+The next decision is a controlled Principal review of the existing bounded
+Validate receipt. This review must not turn one pair into universal utility,
+cross-session aggregation, Variant generation, or an evolution loop. It is a
+separate decision from Tickets A/B and does not authorize EVOLVE.
+
+```yaml
+home_project:
+  role: HISTORICAL_INPUT_ONLY
+  runtime_dependency: NONE
+```
