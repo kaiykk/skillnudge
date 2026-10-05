@@ -2,10 +2,19 @@
 
 ## Status
 
-这是范围方向，不是完整的已实现功能清单。运行时功能仍按 `[FUTURE]` 或
+这是范围方向，不是完整的已实现功能清单。除当前 Product Outcome 外，运行时功能仍按 `[FUTURE]` 或
 `[WORKING HYPOTHESIS]` 标记；当前研究轨迹状态见
 [`docs/current-status.md`](current-status.md)，不能把研究完成误写成 runtime
 完成。
+
+## Current Product Outcome (2026-10-05)
+
+`[IMPLEMENTED_BOUNDED_MVP]` Native Review accepts one real or sanitized,
+observable Agent experience from an unrelated working directory through
+`skillnudge review --stdin`. It returns exactly one bounded disposition:
+`TEST`, `WATCH`, `NO_INTERVENTION`, or `INSUFFICIENT`, with same-experience
+event references and explicit uncertainty. It is provider-free and does not
+claim hidden skill consumption, utility, or effectiveness.
 
 ## V0 — Lightweight Intervention Advisor
 
@@ -43,18 +52,23 @@ source coverage 或 query planning 问题时，才考虑：
 
 Embedding 仍应是可选能力，不应成为普通开发者的安装前提。
 
-## Research track position (2026-10-04)
+## Research track position (2026-10-05)
 
 Phase 3 的当前有边界 evidence accumulation and diagnosis campaign 已完成，
 结果为没有建立可复用 capability gap。Phase 4A 已进入 controlled
-entry-hardening / contract-readiness 工作，但没有授权新的运行时实现、Variant
-promotion 或 Control/Treatment 执行。
+entry-hardening / contract-readiness 工作，但没有授权新的 Variant promotion、
+Control/Treatment 执行或产品 evolution runtime。历史研究结论只约束产品边界，
+不替代产品 runtime 的 Review MVP。
 
-## Later — Review / Grow / Watch
+## Next — Validate
 
-`[FUTURE]` Review、Grow、Watch 属于长期能力地图：
+`[FUTURE]` Validate 将在 Review 输出基础上验证一个候选介入是否值得继续，
+但需要独立的任务、Oracle 和 Principal 授权；Review 本身不会启动验证。
 
-- Review：判断一次 intervention 是否真的帮助了任务；
+## Later — Grow / Watch
+
+`[FUTURE]` Grow、Watch 属于长期能力地图：
+
 - Grow：在证据和用户批准下改进、简化或扩展 local Variant；
 - Watch：观察 model、version、source 和 compatibility drift。
 
@@ -62,7 +76,7 @@ promotion 或 Control/Treatment 执行。
 
 ### Phase 3 Model Track Gate
 
-Before implementing Review/Grow behavior, Phase 3 must first establish a
+Before implementing Validate/Grow behavior, Phase 3 must first establish a
 scenario-aware Capability Gap Registry from real experience evidence. Its
 output is an evidence-backed evolution hypothesis, not a modified Skill or
 Variant. The minimum semantic contract, Discovery Oracle boundary, stop

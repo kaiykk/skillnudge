@@ -21,9 +21,22 @@ When this Skill is explicitly invoked:
    repository is available, derive only concise context such as the repository
    name and current working stage from visible files or the request. Do not
    invent context; an empty or unknown value is valid.
-4. Read the focused `native-contract.md` reference in this Skill directory
-   before producing any host-owned planning artifact. As the host model,
-   perform Capability Framing and produce a bounded
+4. Choose the explicit intent before acting:
+
+   **ADVISE MODE** answers whether the current task needs an external
+   capability. Read `native-contract.md`, perform Capability Framing, and
+   produce one bounded `search`, `no_intervention`, or `clarify` plan.
+
+   **REVIEW MODE** reviews one real or sanitized observable agent experience.
+   When the user asks to review a run/trajectory, inspect only observable
+   events, read `review-contract.md`, construct exactly one Review Envelope,
+   and send it to `skillnudge review --stdin`. Consume the deterministic result
+   and return its bounded disposition. Do not expose hidden reasoning.
+
+   Review Mode is not a utility experiment and does not prove a skill defect,
+   capability gap, or intervention effectiveness.
+
+5. In Advise Mode, perform Capability Framing and produce a bounded
    `capability_framing` object using the installed contract. Then choose
    exactly one Intervention Plan decision:
    `search`, `no_intervention`, or `clarify`.
@@ -34,7 +47,7 @@ When this Skill is explicitly invoked:
    distinct-family secondary or companion target, and a Query Plan with no more
    than five complementary queries. Every query family must be one of the
    planned target families. Do not repeat `semantic_query` strings.
-6. When search is required, send the JSON envelope defined in
+7. When search is required, send the JSON envelope defined in
    `native-contract.md` to the installed deterministic retrieval command.
    That reference defines every required field, optional field, allowed enum,
    and early-stop invariant. Do not invent fields or enum values.
@@ -43,11 +56,12 @@ When this Skill is explicitly invoked:
    API when available. Do not pass `--database`, `PYTHONPATH`, provider
    configuration, or a SkillNudge model credential. Do not assemble the JSON
    through unsafe shell interpolation.
-7. Read the returned Candidate Acquisition and Evidence Packs. Use only those
+8. Read the returned Candidate Acquisition and Evidence Packs. Use only those
    returned evidence fields to evaluate candidate relevance, expected gain,
    trust, friction, and uncertainty. Keep no-intervention and clarification
    as first-class outcomes. Do not claim evidence that was not returned.
-8. Return a concise recommendation, no-intervention result, or clarification
+9. Return a concise recommendation, no-intervention result, clarification, or
+   Review Mode disposition
    to the user. Do not expose chain-of-thought, hidden reasoning, provider
    credentials, or internal prompt text.
 

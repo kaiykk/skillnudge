@@ -108,7 +108,13 @@ $skillnudge
 skillnudge --help
 skillnudge bootstrap
 skillnudge advise "我想做一个更好的 UI 原型，但不知道怎样描述自己的需求"
+skillnudge review --stdin
 ```
+
+`review --stdin` 是 provider-free 的 Native Review MVP。在任意无关工作目录中，
+宿主 Agent 可以提交一条真实或脱敏的、可观察的执行记录，得到
+`TEST`、`WATCH`、`NO_INTERVENTION` 或 `INSUFFICIENT`，同时保留事件引用和明确的不确定性。
+Review 不推断隐藏的 skill 消费，也不宣称介入已经有效。
 
 Phase 1 的 planning 和 judgement 需要通过 `SKILLNUDGE_MODEL_*` 环境变量配置
 OpenAI-compatible provider。请参阅
@@ -179,11 +185,11 @@ Capability Control Plane
 
 ## 当前状态
 
-**截至 2026-10-04 的产品状态：** Phase 1 Native MVP 仍是当前已发布的运行时基线。
-Phase 3 的有边界能力缺口诊断已完成当前研究范围，但没有建立可复用的
-capability gap 或 Skill defect。Phase 4A 已开始受控的 entry hardening 和
-contract readiness 工作；尚未发布新的 runtime、推广 Variant，也没有授权新的
-Control/Treatment 运行。详见 [`docs/current-status.md`](docs/current-status.md) 和
+**截至 2026-10-05 的产品状态：** provider-free Native Review MVP 已成为当前已发布的
+产品结果，同时保留 Phase 1 Native advisor 作为运行时基线。在任意无关工作目录中，
+宿主 Agent 都可以把一条可观察 experience 交给 `skillnudge review --stdin`，得到带事件引用的
+有限 disposition。Phase 3/4 研究仍是产品契约的历史输入，没有建立可复用的 capability gap
+或 Skill defect。详见 [`docs/current-status.md`](docs/current-status.md) 和
 [`docs/product-delivery-sync.md`](docs/product-delivery-sync.md)。
 
 ### 当前可用
@@ -194,6 +200,7 @@ Control/Treatment 运行。详见 [`docs/current-status.md`](docs/current-status
 - 本地 SQLite FTS5 / BM25 检索
 - Evidence Hydration
 - 可观察的 Runtime Trace
+- provider-free Native Review（单条可观察 Agent experience）
 - 组合后的 Phase 1 `advise` 开发态 CLI，支持有边界的早停与 resume
 - Candidate Judgement 与最小 Final Advice 运行时代码
 
@@ -212,7 +219,8 @@ Control/Treatment 运行。详见 [`docs/current-status.md`](docs/current-status
 
 - Utility 评估与 Skill Utility Drift 检测
 - 能力演化
-- Review、Grow、Watch
+- 多 experience 聚合与 Capability Gap Registry
+- Validate、Grow、Watch
 - Phase 4A runtime、Variant promotion 或 Darwin/SkillOpt evolution
 
 当前仓库是早期实现基线，还不是完整产品，也不是产品质量 benchmark。

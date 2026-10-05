@@ -1,32 +1,34 @@
 # SkillNudge Project Handbook
 
 **Status:** Canonical project operating guide
-**Last updated:** 2026-10-04
+**Last updated:** 2026-10-05
 
 ## Active Current Outcome
 
-**Status:** PROVEN / CLOSED
+**Status:** ACTIVE / IMPLEMENTED_BOUNDED_MVP
 
-**Milestone:** Phase 1 Native MVP — CLOSED for the Codex reference host
+**Milestone:** Native Review MVP — CLOSED for the current vertical slice
 
 **Outcome:**
 
-From an unrelated repository, the Principal can explicitly invoke
-`$skillnudge` in Codex and receive real Phase 1 advice using the host Agent's
-existing model, through the installed SkillNudge deterministic core and
-default corpus, without configuring a separate SkillNudge LLM provider.
+From an unrelated working directory, the host Agent can submit one real or
+sanitized observable experience to `skillnudge review --stdin` and receive one
+evidence-referenced `TEST`, `WATCH`, `NO_INTERVENTION`, or `INSUFFICIENT`
+disposition without configuring a separate SkillNudge LLM provider.
 
 **Acceptance evidence:**
 
 - clean installation succeeds;
-- Codex discovers and explicitly invokes `$skillnudge` from an unrelated
-  repository;
-- host Agent semantic reasoning executes;
-- provider-free SkillNudge retrieval/evidence executes;
-- 10 candidates are hydrated;
-- one actual host-model advice is returned to the Principal.
+- an unrelated directory can run the installed `skillnudge review --stdin`;
+- one valid envelope returns a deterministic disposition;
+- evidence event IDs are preserved in the result;
+- invalid evidence references and private reasoning fields are rejected;
+- run artifacts are written outside the source checkout.
 
-**Observed reference-host evidence:**
+The Phase 1 Native advisor remains a shipped baseline and is covered by its
+existing acceptance evidence below.
+
+**Historical Phase 1 reference-host evidence:**
 
 ```text
 Codex host model
@@ -52,12 +54,11 @@ credential was required.
 - installed Codex discovery and explicit invocation were demonstrated;
 - the default corpus/index produced a real hydrated evidence set.
 
-The Phase 1 Native MVP remains the only shipped runtime Current Outcome. The
-research track has since completed a bounded Phase 3 capability-gap diagnosis
-without establishing a reusable gap, and has begun static Phase 4A entry
-hardening / contract-readiness work. These are product-relevant research
-milestones, not a replacement runtime outcome: no Phase 4A runtime, Variant
-promotion, or automatic evolution loop is shipped by this status update.
+The Review MVP is the current shipped runtime Current Outcome. The research
+track has completed a bounded Phase 3 capability-gap diagnosis without
+establishing a reusable gap, and has begun static Phase 4A entry hardening /
+contract-readiness work. Those research milestones do not authorize Validate,
+Variant promotion, or an automatic evolution loop.
 
 The following remain in the Parking Lot or under separate research review: Test
 5 meta-workflow / underlying-task capability confusion; candidate
@@ -78,8 +79,8 @@ artifacts remain in the separate Home Project repository.
 - implicit triggering;
 - benchmark-level evaluation.
 
-This outcome was the current project GPS coordinate and is now proven for the
-Codex reference host. Do not infer a replacement outcome from internal
+This Review MVP is the current project GPS coordinate for this product slice.
+Do not infer Validate, utility, or evolution outcomes from internal
 implementation progress, completed documentation, or passing tests. A new
 Current Outcome requires an explicit project decision.
 

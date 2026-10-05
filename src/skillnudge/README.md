@@ -6,8 +6,9 @@ This package contains the Week 1 Phase 1 runtime:
 - local SQLite FTS5 storage, raw BM25 retrieval, and deterministic RRF;
 - Evidence Hydration;
 - Candidate Judgement and bounded Final Advice;
+- provider-free Native Review of one observable Agent experience;
 - a composed development entry point:
   `PYTHONPATH=src python3 -m skillnudge advise "<request>" --trace`.
 
-It does not implement live discovery, automatic installation, Review, Grow,
+It does not implement live discovery, automatic installation, Validate, Grow,
 Watch, embeddings, reranking, or capability self-evolution.

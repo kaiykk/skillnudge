@@ -24,6 +24,10 @@ def main(argv: list[str] | None = None) -> int:
             "retrieve",
             help="run provider-free Native Mode retrieval from a planning envelope",
         )
+        subparsers.add_parser(
+            "review",
+            help="review one provider-free Native Agent experience",
+        )
         parser.print_help()
         return 0
     if args and args[0] == "bootstrap":
@@ -48,6 +52,10 @@ def main(argv: list[str] | None = None) -> int:
         from .native import main as native_main
 
         return native_main(args[1:])
+    if args and args[0] == "review":
+        from .review import main as review_main
+
+        return review_main(args[1:])
     from .phase1 import main as phase1_main
 
     return phase1_main(args)

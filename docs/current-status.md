@@ -1,18 +1,42 @@
 # Current Product Status
 
-**As of:** 2026-10-04
+**As of:** 2026-10-05
 **Scope:** SkillNudge product repository
 **Evidence detail:** Home Project research receipts; this file is the
 product-facing summary and does not replace those receipts.
 
 ## Product/runtime baseline
 
-The shipped runtime baseline remains the provider-free Native Phase 1 MVP:
+The shipped runtime includes the provider-free Native Phase 1 advisor baseline
+and the bounded Native Review MVP:
 
 - Codex can explicitly invoke `$skillnudge` from an unrelated repository.
 - SkillNudge performs deterministic retrieval and evidence hydration.
 - The host Agent owns semantic planning and judgement.
 - The public Native Mode does not require a separate SkillNudge model provider.
+- A host Agent can submit one observable experience to `skillnudge review --stdin`
+  from an unrelated working directory and receive a deterministic bounded
+  disposition with event references and uncertainty.
+
+### Current Outcome — Native Review MVP
+
+```yaml
+current_outcome: REVIEW_MVP
+status: IMPLEMENTED_BOUNDED_MVP
+input: one real or sanitized observable Agent experience
+output: TEST | WATCH | NO_INTERVENTION | INSUFFICIENT
+evidence: same-experience observable event references
+provider: NONE
+cross_session_aggregation: NOT_IMPLEMENTED
+hidden_reasoning_claim: NONE
+effectiveness_claim: NONE
+```
+
+The Review runtime validates a strict host-produced envelope, rejects unknown
+evidence references and private reasoning fields, persists the input/result/
+trace outside the source checkout, and emits no provider-backed judgement. A
+`TEST` result means only that a bounded intervention is worth validating next;
+it is not a proven capability gap or utility result.
 
 This sync does not change `src/`, the CLI, the native contract, retrieval,
 planning, or the Phase 1 runtime behavior.
@@ -83,8 +107,6 @@ into this product repository.
 
 ## Product-facing next step
 
-The next product change is not an automatic runtime implementation. It is a
-Principal-reviewed decision on whether to freeze a Phase 4A execution contract
-and name an implementation surface. Until that decision exists, this
-repository should receive status and contract documentation only, not a new
-evolution engine.
+The next product slice is a provider-free Validate MVP. It must remain a
+separate outcome and may not turn Review dispositions into utility conclusions,
+cross-session aggregation, Variant generation, or an evolution loop.

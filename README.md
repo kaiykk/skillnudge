@@ -111,7 +111,14 @@ The installed CLI also exposes the bounded commands:
 skillnudge --help
 skillnudge bootstrap
 skillnudge advise "I want to build a better UI prototype but do not know how to describe it"
+skillnudge review --stdin
 ```
+
+`review --stdin` is the provider-free Native Review MVP. From any unrelated
+working directory, the host Agent can submit one real or sanitized observable
+experience and receive `TEST`, `WATCH`, `NO_INTERVENTION`, or `INSUFFICIENT`
+with event references and explicit uncertainty. Review does not infer hidden
+skill consumption or claim intervention effectiveness.
 
 Phase 1 planning and judgement require an explicitly configured
 OpenAI-compatible provider through the `SKILLNUDGE_MODEL_*` environment
@@ -182,13 +189,14 @@ not imply that evaluation or capability evolution is implemented today.
 
 ## Current Status
 
-**Product status as of 2026-10-04:** the Phase 1 Native MVP remains the shipped
-runtime baseline. Phase 3 bounded capability-gap diagnosis is complete for its
-current research scope without establishing a reusable capability gap or Skill
-defect. Phase 4A has started controlled entry hardening and contract-readiness
-work; it has not shipped a new runtime, promoted a Variant, or authorized a
-new Control/Treatment run. See [`docs/current-status.md`](docs/current-status.md)
-and [`docs/product-delivery-sync.md`](docs/product-delivery-sync.md).
+**Product status as of 2026-10-05:** the provider-free Native Review MVP is the
+current shipped product outcome, alongside the Phase 1 Native advisor baseline.
+From an unrelated working directory, a host Agent can submit one observable
+experience to `skillnudge review --stdin` and receive an evidence-referenced
+bounded disposition. Phase 3/4 research remains historical input to the product
+contract; it did not establish a reusable capability gap or Skill defect. See
+[`docs/current-status.md`](docs/current-status.md) and
+[`docs/product-delivery-sync.md`](docs/product-delivery-sync.md).
 
 ### Working today
 
@@ -198,6 +206,7 @@ and [`docs/product-delivery-sync.md`](docs/product-delivery-sync.md).
 - Local SQLite FTS5 / BM25 retrieval
 - Evidence Hydration
 - Observable runtime traces
+- Provider-free Native Review of one observable Agent experience
 - Composed Phase 1 `advise` development CLI with bounded early stops and resume
 - Candidate Judgement and minimal Final Advice runtime code
 
@@ -217,7 +226,8 @@ and [`docs/product-delivery-sync.md`](docs/product-delivery-sync.md).
 
 - Utility evaluation and Skill Utility Drift detection
 - Capability evolution
-- Review, Grow, and Watch
+- Multi-experience aggregation and capability-gap registry
+- Validate, Grow, and Watch
 - Phase 4A runtime execution, Variant promotion, or Darwin/SkillOpt evolution
 
 The repository is an early implementation baseline, not a complete product or
