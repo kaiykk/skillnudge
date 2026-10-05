@@ -58,6 +58,35 @@ receipts when applicable:
 No product delivery is complete merely because a research receipt exists. No
 research conclusion is complete merely because a README was edited.
 
+### Commit decision gate
+
+Every meaningful round must make an explicit repository commit decision before
+it is closed. This is a delivery gate, not a Harness behavior or an automatic
+runtime feature:
+
+```yaml
+commit_decision: COMMIT_NOW | DEFER_COMMIT | NO_REPO_CHANGE | PRINCIPAL_REVIEW
+commit_reason: <one sentence>
+```
+
+Use the decisions as follows:
+
+- `COMMIT_NOW`: the authorized product-owned changes are complete, validated,
+  and should be recorded as one bounded commit in the target repository.
+- `DEFER_COMMIT`: changes exist, but an explicit unresolved validation,
+  evidence, scope, or Principal decision prevents a clean commit. Name the
+  blocker; do not silently leave the decision implicit.
+- `NO_REPO_CHANGE`: the round produced no repository change in its declared
+  target, or only produced Home Project research artifacts.
+- `PRINCIPAL_REVIEW`: the commit would encode a model, authority, phase, or
+  product-boundary change that has not been ratified.
+
+The default for a completed, validated product-document or product-code change
+is `COMMIT_NOW`. A round must not be reported as complete while such a change
+is only present as an uncommitted working-tree diff. Committing does not imply
+push or Principal ratification; push remains a separate delivery decision, and
+model/phase authority remains Human-owned.
+
 ## Phase-transition synchronization
 
 When a phase changes, the same round must either update or explicitly verify:
@@ -80,6 +109,7 @@ reporting a stale phase.
 [ ] Product status distinguishes shipped runtime from research progress.
 [ ] No unratified model or reviewer verdict is presented as product behavior.
 [ ] Tests and scripts/check_publish_gate.sh pass.
+[ ] The commit decision gate is recorded; `COMMIT_NOW` changes are committed.
 [ ] git status, git log, upstream count and commit hash are recorded.
 [ ] git push result is recorded; “Everything up-to-date” is not treated as a
     delivery receipt unless the upstream count was checked first.
