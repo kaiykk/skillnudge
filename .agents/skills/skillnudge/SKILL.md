@@ -36,11 +36,18 @@ When this Skill is explicitly invoked:
    Review Mode is not a utility experiment and does not prove a skill defect,
    capability gap, or intervention effectiveness.
 
+   **VALIDATE MODE** consumes one `TEST` result and one host-produced bounded
+   Validation Envelope. Read `validate-contract.md`, freeze the task, Oracle,
+   exact instruction identity, and parity context before the two arms run;
+   then call `skillnudge validate --stdin`. Return only the scoped pair status
+   and validation result. Do not start another task, mutate a Skill, promote a
+   Variant, or enter EVOLVE MODE.
+
 5. In Advise Mode, perform Capability Framing and produce a bounded
    `capability_framing` object using the installed contract. Then choose
    exactly one Intervention Plan decision:
    `search`, `no_intervention`, or `clarify`.
-5. If the decision is `no_intervention`, use `targets: []` and a Query Plan
+6. If the decision is `no_intervention`, use `targets: []` and a Query Plan
    with `status: skipped` and `queries: []`. If the decision is `clarify`, use
    `targets: []` and a Query Plan with `status: clarify` and `queries: []`.
    If the decision is `search`, emit exactly one primary target, at most one

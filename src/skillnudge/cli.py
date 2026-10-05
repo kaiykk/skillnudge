@@ -28,6 +28,10 @@ def main(argv: list[str] | None = None) -> int:
             "review",
             help="review one provider-free Native Agent experience",
         )
+        subparsers.add_parser(
+            "validate",
+            help="validate one TEST intervention on one bounded task",
+        )
         parser.print_help()
         return 0
     if args and args[0] == "bootstrap":
@@ -56,6 +60,10 @@ def main(argv: list[str] | None = None) -> int:
         from .review import main as review_main
 
         return review_main(args[1:])
+    if args and args[0] == "validate":
+        from .validate import main as validate_main
+
+        return validate_main(args[1:])
     from .phase1 import main as phase1_main
 
     return phase1_main(args)

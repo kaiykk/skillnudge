@@ -7,8 +7,9 @@ This package contains the Week 1 Phase 1 runtime:
 - Evidence Hydration;
 - Candidate Judgement and bounded Final Advice;
 - provider-free Native Review of one observable Agent experience;
+- provider-free Native Validate of one bounded TEST candidate;
 - a composed development entry point:
   `PYTHONPATH=src python3 -m skillnudge advise "<request>" --trace`.
 
-It does not implement live discovery, automatic installation, Validate, Grow,
-Watch, embeddings, reranking, or capability self-evolution.
+It does not implement live discovery, automatic installation, EVOLVE, Watch,
+embeddings, reranking, or capability self-evolution.

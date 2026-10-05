@@ -16,6 +16,12 @@ observable Agent experience from an unrelated working directory through
 event references and explicit uncertainty. It is provider-free and does not
 claim hidden skill consumption, utility, or effectiveness.
 
+`[IMPLEMENTED_BOUNDED_MVP]` Validate consumes one `TEST` candidate and one
+frozen Validation Envelope. It compares parity-controlled Control/Treatment
+records with an observable Oracle and returns a scoped `HELPS`, `NEUTRAL`,
+`HURTS`, `INCONCLUSIVE`, or `NOT_EVALUATED` result. It does not promote or
+rewrite a Skill.
+
 ## V0 — Lightweight Intervention Advisor
 
 `[FROZEN]` 第一阶段只验证：
@@ -60,10 +66,11 @@ entry-hardening / contract-readiness 工作，但没有授权新的 Variant prom
 Control/Treatment 执行或产品 evolution runtime。历史研究结论只约束产品边界，
 不替代产品 runtime 的 Review MVP。
 
-## Next — Validate
+## Next — Principal Review of Validate Receipt
 
-`[FUTURE]` Validate 将在 Review 输出基础上验证一个候选介入是否值得继续，
-但需要独立的任务、Oracle 和 Principal 授权；Review 本身不会启动验证。
+`[CURRENT]` Review → Validate 的首个 bounded receipt 完成后，Principal
+需要审阅 pair validity、Oracle 和 scoped outcome；不得将单个 pair 泛化为
+通用 utility 或自动进入 EVOLVE。
 
 ## Later — Grow / Watch
 
@@ -76,7 +83,7 @@ Control/Treatment 执行或产品 evolution runtime。历史研究结论只约�
 
 ### Phase 3 Model Track Gate
 
-Before implementing Validate/Grow behavior, Phase 3 must first establish a
+Before implementing Grow/Evolve behavior, Phase 3 must first establish a
 scenario-aware Capability Gap Registry from real experience evidence. Its
 output is an evidence-backed evolution hypothesis, not a modified Skill or
 Variant. The minimum semantic contract, Discovery Oracle boundary, stop

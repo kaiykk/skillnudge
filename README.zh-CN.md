@@ -109,12 +109,18 @@ skillnudge --help
 skillnudge bootstrap
 skillnudge advise "我想做一个更好的 UI 原型，但不知道怎样描述自己的需求"
 skillnudge review --stdin
+skillnudge validate --stdin
 ```
 
 `review --stdin` 是 provider-free 的 Native Review MVP。在任意无关工作目录中，
 宿主 Agent 可以提交一条真实或脱敏的、可观察的执行记录，得到
 `TEST`、`WATCH`、`NO_INTERVENTION` 或 `INSUFFICIENT`，同时保留事件引用和明确的不确定性。
 Review 不推断隐藏的 skill 消费，也不宣称介入已经有效。
+
+`validate --stdin` 接收一个 `TEST` 结果和冻结的 Validation Envelope，在同一个有边界的
+任务上比较没有/有精确 instruction intervention 的两臂执行，返回 `HELPS`、`NEUTRAL`、
+`HURTS`、`INCONCLUSIVE` 或 `NOT_EVALUATED`，同时保留 `pair_status`。结果只适用于当前任务、
+宿主、模型和 intervention，不会自动推广或改写 Skill。
 
 Phase 1 的 planning 和 judgement 需要通过 `SKILLNUDGE_MODEL_*` 环境变量配置
 OpenAI-compatible provider。请参阅
@@ -201,6 +207,7 @@ Capability Control Plane
 - Evidence Hydration
 - 可观察的 Runtime Trace
 - provider-free Native Review（单条可观察 Agent experience）
+- provider-free Native Validate（单条 bounded TEST candidate）
 - 组合后的 Phase 1 `advise` 开发态 CLI，支持有边界的早停与 resume
 - Candidate Judgement 与最小 Final Advice 运行时代码
 
@@ -220,7 +227,7 @@ Capability Control Plane
 - Utility 评估与 Skill Utility Drift 检测
 - 能力演化
 - 多 experience 聚合与 Capability Gap Registry
-- Validate、Grow、Watch
+- EVOLVE、多 experience 聚合、Capability Gap Registry 与 Watch
 - Phase 4A runtime、Variant promotion 或 Darwin/SkillOpt evolution
 
 当前仓库是早期实现基线，还不是完整产品，也不是产品质量 benchmark。

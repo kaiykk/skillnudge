@@ -112,6 +112,7 @@ skillnudge --help
 skillnudge bootstrap
 skillnudge advise "I want to build a better UI prototype but do not know how to describe it"
 skillnudge review --stdin
+skillnudge validate --stdin
 ```
 
 `review --stdin` is the provider-free Native Review MVP. From any unrelated
@@ -119,6 +120,12 @@ working directory, the host Agent can submit one real or sanitized observable
 experience and receive `TEST`, `WATCH`, `NO_INTERVENTION`, or `INSUFFICIENT`
 with event references and explicit uncertainty. Review does not infer hidden
 skill consumption or claim intervention effectiveness.
+
+`validate --stdin` consumes one `TEST` result and a frozen Validation Envelope,
+then evaluates the same bounded task with and without the exact instruction
+intervention. It returns `HELPS`, `NEUTRAL`, `HURTS`, `INCONCLUSIVE`, or
+`NOT_EVALUATED` together with `pair_status`. Results are scoped to that task,
+host, model, and intervention; they do not promote or rewrite a Skill.
 
 Phase 1 planning and judgement require an explicitly configured
 OpenAI-compatible provider through the `SKILLNUDGE_MODEL_*` environment
@@ -207,6 +214,7 @@ contract; it did not establish a reusable capability gap or Skill defect. See
 - Evidence Hydration
 - Observable runtime traces
 - Provider-free Native Review of one observable Agent experience
+- Provider-free Native Validate of one bounded TEST candidate
 - Composed Phase 1 `advise` development CLI with bounded early stops and resume
 - Candidate Judgement and minimal Final Advice runtime code
 
@@ -227,7 +235,7 @@ contract; it did not establish a reusable capability gap or Skill defect. See
 - Utility evaluation and Skill Utility Drift detection
 - Capability evolution
 - Multi-experience aggregation and capability-gap registry
-- Validate, Grow, and Watch
+- EVOLVE, multi-experience aggregation, capability-gap registry, and Watch
 - Phase 4A runtime execution, Variant promotion, or Darwin/SkillOpt evolution
 
 The repository is an early implementation baseline, not a complete product or

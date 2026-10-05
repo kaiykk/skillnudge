@@ -7,7 +7,7 @@
 
 **Status:** ACTIVE / IMPLEMENTED_BOUNDED_MVP
 
-**Milestone:** Native Review MVP — CLOSED for the current vertical slice
+**Milestone:** Native Review + Validate MVP — CLOSED for the current vertical slice
 
 **Outcome:**
 
@@ -16,6 +16,11 @@ sanitized observable experience to `skillnudge review --stdin` and receive one
 evidence-referenced `TEST`, `WATCH`, `NO_INTERVENTION`, or `INSUFFICIENT`
 disposition without configuring a separate SkillNudge LLM provider.
 
+The host can then pass the `TEST` result to `skillnudge validate --stdin`
+alongside one frozen task and observable Control/Treatment execution records.
+The command returns a scoped pair outcome without requiring a provider or
+starting a lifecycle transition.
+
 **Acceptance evidence:**
 
 - clean installation succeeds;
@@ -23,7 +28,9 @@ disposition without configuring a separate SkillNudge LLM provider.
 - one valid envelope returns a deterministic disposition;
 - evidence event IDs are preserved in the result;
 - invalid evidence references and private reasoning fields are rejected;
-- run artifacts are written outside the source checkout.
+- run artifacts are written outside the source checkout;
+- a valid pair produces a scoped validation result;
+- an invalid arm produces `NOT_EVALUATED` rather than weak evidence.
 
 The Phase 1 Native advisor remains a shipped baseline and is covered by its
 existing acceptance evidence below.
@@ -54,11 +61,11 @@ credential was required.
 - installed Codex discovery and explicit invocation were demonstrated;
 - the default corpus/index produced a real hydrated evidence set.
 
-The Review MVP is the current shipped runtime Current Outcome. The research
+The Review + Validate MVP is the current shipped runtime Current Outcome. The research
 track has completed a bounded Phase 3 capability-gap diagnosis without
 establishing a reusable gap, and has begun static Phase 4A entry hardening /
-contract-readiness work. Those research milestones do not authorize Validate,
-Variant promotion, or an automatic evolution loop.
+contract-readiness work. Those research milestones do not authorize Variant
+promotion or an automatic evolution loop.
 
 The following remain in the Parking Lot or under separate research review: Test
 5 meta-workflow / underlying-task capability confusion; candidate
@@ -79,8 +86,8 @@ artifacts remain in the separate Home Project repository.
 - implicit triggering;
 - benchmark-level evaluation.
 
-This Review MVP is the current project GPS coordinate for this product slice.
-Do not infer Validate, utility, or evolution outcomes from internal
+This Review + Validate MVP is the current project GPS coordinate for this
+product slice. Do not infer universal utility or evolution outcomes from internal
 implementation progress, completed documentation, or passing tests. A new
 Current Outcome requires an explicit project decision.
 

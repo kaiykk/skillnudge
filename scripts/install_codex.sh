@@ -64,8 +64,10 @@ cp -R "$skill_source/." "$skill_target/"
 "$launcher" advise --help >/dev/null
 "$launcher" retrieve --help >/dev/null
 "$launcher" review --help >/dev/null
+"$launcher" validate --help >/dev/null
 test -s "$skill_target/SKILL.md"
 test -s "$skill_target/review-contract.md"
+test -s "$skill_target/validate-contract.md"
 test -x "$launcher"
 
 printf 'SkillNudge installed.\n'

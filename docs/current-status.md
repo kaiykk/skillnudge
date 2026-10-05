@@ -17,11 +17,14 @@ and the bounded Native Review MVP:
 - A host Agent can submit one observable experience to `skillnudge review --stdin`
   from an unrelated working directory and receive a deterministic bounded
   disposition with event references and uncertainty.
+- A `TEST` result can be passed to `skillnudge validate --stdin` with one
+  frozen task, exact instruction identity, parity-controlled Control/Treatment
+  records, and an observable Oracle.
 
 ### Current Outcome — Native Review MVP
 
 ```yaml
-current_outcome: REVIEW_MVP
+current_outcome: REVIEW_VALIDATE_MVP
 status: IMPLEMENTED_BOUNDED_MVP
 input: one real or sanitized observable Agent experience
 output: TEST | WATCH | NO_INTERVENTION | INSUFFICIENT
@@ -30,16 +33,20 @@ provider: NONE
 cross_session_aggregation: NOT_IMPLEMENTED
 hidden_reasoning_claim: NONE
 effectiveness_claim: NONE
+validate: IMPLEMENTED_BOUNDED_MVP
+evolve: NOT_IMPLEMENTED
 ```
 
 The Review runtime validates a strict host-produced envelope, rejects unknown
 evidence references and private reasoning fields, persists the input/result/
 trace outside the source checkout, and emits no provider-backed judgement. A
 `TEST` result means only that a bounded intervention is worth validating next;
-it is not a proven capability gap or utility result.
+it is not a proven capability gap or utility result. A Validate result is
+scoped to one task/intervention/host/model and does not authorize promotion,
+rewrite, or evolution.
 
-This sync does not change `src/`, the CLI, the native contract, retrieval,
-planning, or the Phase 1 runtime behavior.
+This sync adds the Native Validate MVP while preserving retrieval, planning,
+and Phase 1 runtime behavior.
 
 ## Research-track position
 
@@ -107,6 +114,6 @@ into this product repository.
 
 ## Product-facing next step
 
-The next product slice is a provider-free Validate MVP. It must remain a
-separate outcome and may not turn Review dispositions into utility conclusions,
-cross-session aggregation, Variant generation, or an evolution loop.
+The next product slice is a controlled Principal review of the first Validate
+receipt. It must not turn one pair into universal utility, cross-session
+aggregation, Variant generation, or an evolution loop.
