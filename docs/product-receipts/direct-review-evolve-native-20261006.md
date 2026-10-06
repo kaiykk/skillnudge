@@ -7,7 +7,7 @@ product_behavior_change: YES
 product_status_change: YES
 implementation_authorized: YES
 governance_gate: FOCUSED_GLOBAL_RECHECK_PASS
-delivery_status: VERIFIED_AWAITING_COMMIT
+delivery_status: COMMITTED_AWAITING_PUSH
 ```
 
 ## Shipped behavior proven in dogfood
@@ -75,6 +75,6 @@ commit_decision: COMMIT_NOW
 commit_reason: >-
   The authorized product calibration, direct-admission implementation, tests,
   and dogfood-facing status are complete and all required engineering gates pass.
-initial_commit: PENDING
+initial_commit: 5f08e0b
 push_result: PENDING
 ```
