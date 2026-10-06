@@ -38,3 +38,13 @@ inside the frozen frame.
 
 Designed diagnostic probes may support or falsify a mechanism.
 They must never be promoted into natural utility or generalization evidence.
+
+## Autonomous Evolution Baseline
+
+The default control model is defined in
+`docs/autonomous-evolution-baseline-v0.md`.
+
+Bounded autonomous search may continue without Principal review while it
+remains inside the frozen frame. Suspended uncertainty may be persisted and
+later reactivated by qualifying evidence, but reactivation is not a utility
+claim or lifecycle mutation.

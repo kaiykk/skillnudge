@@ -111,6 +111,8 @@ skillnudge advise "我想做一个更好的 UI 原型，但不知道怎样描述
 skillnudge review --stdin
 skillnudge validate --stdin
 skillnudge evolve --stdin
+skillnudge need create --stdin
+skillnudge watch --stdin
 ```
 
 `review --stdin` 是 provider-free 的 Native Review MVP。在任意无关工作目录中，
@@ -129,6 +131,12 @@ instruction candidate。之前的 `INTERVENTION_ABLATION` 证据可以加强 adm
 Validate、安装、激活、晋升或修改当前 capability。EVOLVE 之后的 `VALIDATE`
 通过 `validate --stdin` 的 `CAPABILITY_REVISION` 模式执行，生命周期决定仍由
 Human 负责。
+
+`need create --stdin` 会在源码目录之外持久化一条有边界的未解决 Evidence
+Need。`watch --stdin` 会在后续进程重新加载它，并针对一条宿主观察到的
+experience 返回 `IGNORE`、`WAKE` 或 `INSUFFICIENT`。WATCH 不需要 provider，
+不会宣称 utility、晋升 candidate，也不会推进生命周期。详见
+[`docs/autonomous-evolution-baseline-v0.md`](docs/autonomous-evolution-baseline-v0.md)。
 
 Phase 1 的 planning 和 judgement 需要通过 `SKILLNUDGE_MODEL_*` 环境变量配置
 OpenAI-compatible provider。请参阅

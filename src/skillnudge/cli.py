@@ -40,6 +40,15 @@ def main(argv: list[str] | None = None) -> int:
                 "does not validate or promote"
             ),
         )
+        need = subparsers.add_parser(
+            "need",
+            help="persist one bounded suspended Evidence Need",
+        )
+        need.add_argument("command", nargs="?", choices=["create"])
+        subparsers.add_parser(
+            "watch",
+            help="match one later host experience against an Evidence Need",
+        )
         parser.print_help()
         return 0
     if args and args[0] == "bootstrap":
@@ -76,6 +85,14 @@ def main(argv: list[str] | None = None) -> int:
         from .evolve import main as evolve_main
 
         return evolve_main(args[1:])
+    if args and args[0] == "need":
+        from .evidence_need import main as need_main
+
+        return need_main(args[1:])
+    if args and args[0] == "watch":
+        from .watch import main as watch_main
+
+        return watch_main(args[1:])
     from .phase1 import main as phase1_main
 
     return phase1_main(args)

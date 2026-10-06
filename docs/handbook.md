@@ -7,7 +7,7 @@
 
 **Status:** IMPLEMENTED_BOUNDED_MVP
 
-**Milestone:** Native Review + Validate + candidate-only EVOLVE MVP — CLOSED for the current vertical slice
+**Milestone:** Native Review + Validate + candidate-only EVOLVE + bounded WATCH MVP — CLOSED for the current vertical slice
 
 **Outcome:**
 
@@ -105,6 +105,12 @@ universal utility or promotion outcomes from internal implementation progress,
 completed
 documentation, or passing tests. A new Current Outcome requires an explicit
 project decision.
+
+The bounded autonomous-evolution baseline now includes a provider-free WATCH
+slice. A single suspended Evidence Need can survive a process boundary and be
+classified against one later host experience as `IGNORE`, `WAKE`, or
+`INSUFFICIENT`. This does not add a lifecycle stage or automatic evolution;
+see [`docs/autonomous-evolution-baseline-v0.md`](autonomous-evolution-baseline-v0.md).
 
 ## Host-Native Product Invariant
 

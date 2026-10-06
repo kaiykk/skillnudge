@@ -25,7 +25,7 @@ and the bounded Native Review MVP:
 ### Current Outcome — Native Review + Validate MVP
 
 ```yaml
-current_outcome: REVIEW_EVOLVE_VALIDATE_MVP
+current_outcome: REVIEW_EVOLVE_VALIDATE_WATCH_MVP
 status: IMPLEMENTED_BOUNDED_MVP
 input: one real or sanitized observable Agent experience
 output: TEST | WATCH | NO_INTERVENTION | INSUFFICIENT
@@ -41,6 +41,12 @@ native_direct_review_to_evolve: PROVEN_FOR_ONE_BOUNDED_TASK
 capability_revision_outcome: NEUTRAL
 decision_authority: HUMAN_REQUIRED
 auto_promotion: NOT_IMPLEMENTED
+watch: IMPLEMENTED_BOUNDED_MVP
+watch_scope: EVIDENCE_NEED_MATCH_AND_WAKE
+watch_provider: NONE
+watch_cross_session_persistence: PROVEN_BOUNDED
+watch_automatic_lifecycle_transition: false
+evidence_need: IMPLEMENTED_BOUNDED_MVP
 ```
 
 The Review runtime validates a strict host-produced envelope, rejects unknown
@@ -59,6 +65,14 @@ does not need to be `HELPS` merely to create a candidate. Post-EVOLVE `VALIDATE`
 reuses the existing `validate` command in `CAPABILITY_REVISION` mode. No candidate is
 installed or promoted. Retrieval, planning, and Phase 1 runtime behavior are
 unchanged.
+
+The bounded WATCH slice persists one open Evidence Need outside the source
+checkout and reloads it in a later process. A host-produced experience can be
+classified as `IGNORE`, `WAKE`, or `INSUFFICIENT` with event references.
+`WAKE` only records that the suspended question is relevant again; it is not a
+utility claim, lifecycle transition, or automatic follow-up. Generic
+cross-session aggregation, scheduling and autonomous evolution remain
+unimplemented.
 
 ## Research-track position
 

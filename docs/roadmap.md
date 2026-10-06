@@ -22,6 +22,17 @@ records with an observable Oracle and returns a scoped `HELPS`, `NEUTRAL`,
 `HURTS`, `INCONCLUSIVE`, or `NOT_EVALUATED` result. It does not promote or
 rewrite a Skill.
 
+## Current — Suspended uncertainty WATCH slice (2026-10-06)
+
+`[IMPLEMENTED_BOUNDED_MVP]` One `OPEN` Evidence Need can be persisted with a
+candidate identity, unresolved question, evidence role, scope and source
+references, then loaded by a later process. `skillnudge watch --stdin`
+validates one host-produced experience and returns `IGNORE`, `WAKE`, or
+`INSUFFICIENT` with observable event references. The provider-free result
+keeps the need open and explicitly creates no utility claim or lifecycle
+transition. This is one bounded persisted need plus later matching, not a
+generic monitoring or aggregation system.
+
 ## Evolution Gradient (frozen concept, 2026-10-06)
 
 [`docs/evolution-gradient.md`](evolution-gradient.md) freezes an
@@ -96,10 +107,11 @@ pair into universal utility.
 和 source CapabilityArtifact 存在时创建 versioned instruction candidate。
 `INTERVENTION_ABLATION` 是可选的 pre-EVOLVE evidence-strengthening 路径，
 不是普遍前置条件；随后必须用现有 Validate 的 `CAPABILITY_REVISION` 模式
-再次比较。WATCH 仍是未来的 cross-cutting capability：
+再次比较。WATCH is now a bounded cross-cutting capability:
 
 - EVOLVE：在 Review admission contract 通过后提出 candidate-only 版本；
-- Watch：观察 model、version、source 和 compatibility drift。
+- Watch：持久化一条 Evidence Need，并在后续 host experience 到来时返回
+  `IGNORE`、`WAKE` 或 `INSUFFICIENT`；不做通用 drift aggregation。
 
 Evidence level for the revised direct-admission path:
 `HOST_ATTESTED_DIRECT_PATH_DOGFOOD`. The direct path has been exercised once
