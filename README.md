@@ -204,7 +204,7 @@ canonical product direction and user-facing meaning.
 
 ## Current Status
 
-**Product status as of 2026-10-05:** the provider-free Native Review MVP is the
+**Product status as of 2026-10-06:** the provider-free Native Review MVP is the
 current shipped product outcome, alongside the Phase 1 Native advisor baseline.
 From an unrelated working directory, a host Agent can submit one observable
 experience to `skillnudge review --stdin` and receive an evidence-referenced
@@ -240,6 +240,11 @@ contract; it did not establish a reusable capability gap or Skill defect. See
   `reusable_capability_gap=INSUFFICIENT`
 - Phase 4A entry hardening remains historical input; the product has a bounded
   candidate-only EVOLVE path
+
+The first bounded utility-evidence round produced one valid positive sibling
+comparison (`H2`) while a second held-out Oracle was invalid. The result is
+`MIXED_OBSERVATION`, not a general utility or promotion claim; the full packet
+remains in Home Project.
 
 ### Not yet shipped
 

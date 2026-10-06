@@ -93,9 +93,9 @@ pair into universal utility.
 - Watch：观察 model、version、source 和 compatibility drift。
 
 Evidence level for the revised direct-admission path:
-`CONTRACT_TESTED_NOT_DOGFOOD`. The next product gate is the pending
-Intent-Fidelity → Local-Audit → Global-Recheck sequence; no new Native Host
-dogfood receipt exists yet.
+`HOST_ATTESTED_DIRECT_PATH_DOGFOOD`. The direct path has been exercised once
+on a real Native Host task. That receipt proves lifecycle execution only; it
+does not establish candidate utility or reusable generalization.
 
 EVOLVE remains candidate-only and Principal-reviewed. WATCH is cross-cutting
 and is not a sequential phase.

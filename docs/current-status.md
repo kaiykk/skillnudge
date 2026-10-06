@@ -134,6 +134,15 @@ promotion, or autonomous evolution. The product delivery receipt is
 `docs/product-receipts/direct-review-evolve-native-20261006.md`; the complete
 trajectory and governance packet remain in Home Project.
 
+The first bounded utility-evidence round then exercised a fresh structured
+record task family. Source S and held-out H2 returned `VALID / HELPS`; H1 was
+`INVALID / NOT_EVALUATED` because its frozen Oracle contradicted the task
+arithmetic. This is a `MIXED_OBSERVATION`, not a stable utility or promotion
+result. Candidate v2 was frozen before held-out execution and Human DECIDE
+remains required. The product receipt is
+`docs/product-receipts/first-utility-bearing-evolution-20261006.md`; raw
+evidence remains in Home Project.
+
 ```yaml
 home_project:
   role: HISTORICAL_INPUT_ONLY

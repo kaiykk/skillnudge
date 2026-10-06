@@ -196,7 +196,7 @@ ADVISE -> REVIEW -> EVOLVE -> VALIDATE -> DECIDE
 
 ## 当前状态
 
-**截至 2026-10-05 的产品状态：** provider-free Native Review MVP 已成为当前已发布的
+**截至 2026-10-06 的产品状态：** provider-free Native Review MVP 已成为当前已发布的
 产品结果，同时保留 Phase 1 Native advisor 作为运行时基线。在任意无关工作目录中，
 宿主 Agent 都可以把一条可观察 experience 交给 `skillnudge review --stdin`，得到带事件引用的
 有限 disposition。Phase 3/4 研究仍是产品契约的历史输入，没有建立可复用的 capability gap
@@ -227,6 +227,10 @@ ADVISE -> REVIEW -> EVOLVE -> VALIDATE -> DECIDE
 - Phase 3 当前有边界的 evidence diagnosis campaign 已完成；
   `reusable_capability_gap=INSUFFICIENT`
 - Phase 4A entry hardening 是历史输入；产品已具备 bounded candidate-only EVOLVE
+
+第一轮有边界的 utility evidence 只得到一个有效的 sibling 正向比较（`H2`），
+另一个 held-out Oracle 无效，因此结果是 `MIXED_OBSERVATION`，不是通用 utility
+或 promotion 结论；完整 packet 保留在 Home Project。
 
 ### 尚未发布
 
