@@ -43,4 +43,6 @@ commit_reason: >-
 delivery_commit: 873361e
 push_decision: SEPARATE
 push_result: PASS
+installed_cli_sync: PASS
+installed_cli_surface: review / validate / evolve
 ```
