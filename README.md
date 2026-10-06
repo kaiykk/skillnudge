@@ -241,10 +241,11 @@ contract; it did not establish a reusable capability gap or Skill defect. See
 - Phase 4A entry hardening remains historical input; the product has a bounded
   candidate-only EVOLVE path
 
-The first bounded utility-evidence round produced one valid positive sibling
-comparison (`H2`) while a second held-out Oracle was invalid. The result is
-`MIXED_OBSERVATION`, not a general utility or promotion claim; the full packet
-remains in Home Project.
+The first bounded utility-evidence round produced a mechanically valid sibling
+comparison (`H2`), while H1's held-out Oracle was invalid. Because the sibling
+arms were not fresh Native Host/model trajectories, the round is
+`NOT_EVALUATED` for candidate utility, not a general utility or promotion
+claim; the full packet remains in Home Project.
 
 ### Not yet shipped
 

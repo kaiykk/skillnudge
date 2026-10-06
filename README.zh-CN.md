@@ -228,9 +228,10 @@ ADVISE -> REVIEW -> EVOLVE -> VALIDATE -> DECIDE
   `reusable_capability_gap=INSUFFICIENT`
 - Phase 4A entry hardening 是历史输入；产品已具备 bounded candidate-only EVOLVE
 
-第一轮有边界的 utility evidence 只得到一个有效的 sibling 正向比较（`H2`），
-另一个 held-out Oracle 无效，因此结果是 `MIXED_OBSERVATION`，不是通用 utility
-或 promotion 结论；完整 packet 保留在 Home Project。
+第一轮有边界的 utility evidence 得到一个机械上有效的 sibling 比较（`H2`），
+另一个 held-out Oracle 无效；但 sibling 两臂不是新的 Native Host/model 轨迹，
+所以本轮对 candidate utility 是 `NOT_EVALUATED`，不是通用 utility 或 promotion
+结论；完整 packet 保留在 Home Project。
 
 ### 尚未发布
 

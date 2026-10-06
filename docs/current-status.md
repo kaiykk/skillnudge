@@ -135,11 +135,12 @@ promotion, or autonomous evolution. The product delivery receipt is
 trajectory and governance packet remain in Home Project.
 
 The first bounded utility-evidence round then exercised a fresh structured
-record task family. Source S and held-out H2 returned `VALID / HELPS`; H1 was
-`INVALID / NOT_EVALUATED` because its frozen Oracle contradicted the task
-arithmetic. This is a `MIXED_OBSERVATION`, not a stable utility or promotion
-result. Candidate v2 was frozen before held-out execution and Human DECIDE
-remains required. The product receipt is
+record source task. Source S returned `VALID / HELPS` from the current Native
+Host; H1 was `INVALID / NOT_EVALUATED` because its frozen Oracle contradicted
+the task arithmetic; H2 returned a mechanically valid `HELPS` from a fixture,
+not a fresh Agent/model trajectory. The round is therefore
+`NOT_EVALUATED` for candidate utility, not a promotion result. Candidate v2
+was frozen before held-out execution and Human DECIDE remains required. The product receipt is
 `docs/product-receipts/first-utility-bearing-evolution-20261006.md`; raw
 evidence remains in Home Project.
 
