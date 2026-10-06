@@ -46,6 +46,7 @@ commit_reason: >-
   The authorized product status correction and concise evidence receipt are
   complete; no runtime change is included.
 delivery_commit: 873361e
+provenance_correction_commit: e9591b4
 push_decision: SEPARATE
 push_result: PASS
 installed_cli_sync: PASS
