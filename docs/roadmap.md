@@ -22,6 +22,15 @@ records with an observable Oracle and returns a scoped `HELPS`, `NEUTRAL`,
 `HURTS`, `INCONCLUSIVE`, or `NOT_EVALUATED` result. It does not promote or
 rewrite a Skill.
 
+## Evolution Gradient (frozen concept, 2026-10-06)
+
+[`docs/evolution-gradient.md`](evolution-gradient.md) freezes an
+evidence-bounded directional signal around evaluation. It separates
+`Evaluation Fact`, `Causal Hypothesis`, and future candidate updates without
+adding a lifecycle stage, utility score, automatic learning loop, or lifecycle
+authority. The current utility round remains
+`NOT_EVALUATED_FOR_CANDIDATE_UTILITY`.
+
 ## Shipped baseline — ADVISE / REVIEW / VALIDATE
 
 `[FROZEN]` 第一阶段只验证：
