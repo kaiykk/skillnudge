@@ -23,7 +23,7 @@ classification therefore remains:
 
 ```yaml
 candidate_utility: NOT_ESTABLISHED
-round_classification: NOT_EVALUATED
+round_classification: NO_NATIVE_UTILITY_OBSERVED
 evolution_gradient: COLLECT_MORE_DISCRIMINATIVE_EVIDENCE
 ```
 

@@ -108,9 +108,19 @@ does not establish candidate utility or reusable generalization.
 
 The first Native held-out follow-up evaluated the unchanged candidate v2 on
 H1R and H3. Both pairs were `VALID / NEUTRAL`; no held-out improvement was
-observed. The bounded direction is
+observed. The bounded round classification is
+`NO_NATIVE_UTILITY_OBSERVED`; candidate utility remains
+`NOT_ESTABLISHED`. The bounded direction is
 `COLLECT_MORE_DISCRIMINATIVE_EVIDENCE`, not automatic evolution or promotion.
 See [`docs/product-receipts/first-native-heldout-utility-20261006.md`](product-receipts/first-native-heldout-utility-20261006.md) for the product-owned summary.
+
+The bounded Mechanism-Grounded Autonomous Search Episode 0 then reconstructed
+the candidate mechanism and searched existing Native evidence for a natural
+discriminative boundary. It stopped at `LOW_MARGINAL_INFORMATION` without a
+new Native pair. Candidate utility remains `NOT_ESTABLISHED`; the next action
+is `MORE_EVIDENCE` only for a naturally occurring ambiguous task, not a
+post-hoc benchmark or automatic evolution. See
+[`docs/product-receipts/mechanism-grounded-search-episode-0-20261006.md`](product-receipts/mechanism-grounded-search-episode-0-20261006.md).
 
 EVOLVE remains candidate-only and Principal-reviewed. WATCH is cross-cutting
 and is not a sequential phase.

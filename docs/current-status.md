@@ -147,10 +147,19 @@ evidence remains in Home Project.
 The first Native held-out follow-up evaluated the same frozen v2 on new Native
 Host/model siblings H1R and H3. Both pairs were `VALID / NEUTRAL` with
 complete observable trajectories and independently passing Oracles. Candidate
-utility remains `NOT_ESTABLISHED`; the bounded Evolution Gradient is
+utility remains `NOT_ESTABLISHED`; the bounded round classification is
+`NO_NATIVE_UTILITY_OBSERVED`; the Evolution Gradient is
 `COLLECT_MORE_DISCRIMINATIVE_EVIDENCE`. The concise product receipt is
 `docs/product-receipts/first-native-heldout-utility-20261006.md`; complete arm
 trajectories and shadow analysis remain in Home Project.
+
+The follow-up Mechanism-Grounded Autonomous Search Episode 0 reconstructed the
+candidate mechanism and searched the existing Native evidence for a natural
+discriminative record-admission boundary. It found none and stopped at
+`LOW_MARGINAL_INFORMATION`; no new Native pair, candidate v3, Darwin, SkillOpt,
+runtime change, or lifecycle mutation occurred. Its product-facing receipt is
+`docs/product-receipts/mechanism-grounded-search-episode-0-20261006.md`; the
+full search packet remains in Home Project.
 
 ```yaml
 home_project:
