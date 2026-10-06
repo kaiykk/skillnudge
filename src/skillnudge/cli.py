@@ -32,6 +32,14 @@ def main(argv: list[str] | None = None) -> int:
             "validate",
             help="validate one TEST intervention on one bounded task",
         )
+        subparsers.add_parser(
+            "evolve",
+            help=(
+                "create one non-active versioned candidate from a qualifying Review; "
+                "optional INTERVENTION_ABLATION may strengthen admission, but EVOLVE "
+                "does not validate or promote"
+            ),
+        )
         parser.print_help()
         return 0
     if args and args[0] == "bootstrap":
@@ -64,6 +72,10 @@ def main(argv: list[str] | None = None) -> int:
         from .validate import main as validate_main
 
         return validate_main(args[1:])
+    if args and args[0] == "evolve":
+        from .evolve import main as evolve_main
+
+        return evolve_main(args[1:])
     from .phase1 import main as phase1_main
 
     return phase1_main(args)

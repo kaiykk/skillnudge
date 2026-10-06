@@ -40,11 +40,15 @@ The canonical lifecycle is:
 ```text
 ADVISE
   -> REVIEW
-  -> VALIDATE
   -> EVOLVE
-  -> VALIDATE AGAIN
-  -> PROMOTE / ROLLBACK / RETIRE
+  -> VALIDATE (candidate v2 vs current capability v1)
+  -> DECIDE (Human-owned lifecycle action)
 ```
+
+`INTERVENTION_ABLATION` may be used between REVIEW and EVOLVE when additional
+mechanism or attribution evidence is useful, but it is optional and is not a
+universal `VALIDATE HELPS` prerequisite. The post-EVOLVE comparison is the
+bounded `VALIDATE` evidence step.
 
 `WATCH` is a cross-cutting capability. It detects new evidence or possible
 utility drift and may trigger Review or Validate; it is not a sequential phase
@@ -63,7 +67,7 @@ anything, is worth testing as an intervention. Review preserves evidence
 references and uncertainty. It does not prove a capability gap, Skill defect,
 or intervention effectiveness.
 
-### VALIDATE
+### INTERVENTION_ABLATION (optional pre-EVOLVE evidence)
 
 Compare the exact bounded intervention against its Control condition on the
 same tested scope. Keep task, host, model, harness, tools, budget, environment,
@@ -72,12 +76,16 @@ and observable Oracle explicit. A valid pair may return `HELPS`, `NEUTRAL`,
 
 ### EVOLVE
 
-Only previously validated behavior-change evidence may justify proposing a
-versioned capability candidate. The Host may supply semantic proposal content;
-SkillNudge must preserve source identity, parent lineage, exact content, and
-evidence linkage. EVOLVE creates a candidate, not a promoted capability.
+Review evidence may justify proposing a versioned capability candidate when it
+passes the EVOLVE Admission Contract: `TEST`, primary
+`capability_candidate` attribution, observable evidence references, source
+artifact identity, and a host-proposed candidate. The Host may supply semantic
+proposal content; SkillNudge must preserve source identity, parent lineage,
+exact content, and evidence linkage. Optional `INTERVENTION_ABLATION` can
+strengthen admission but is not universally required. EVOLVE creates a
+candidate, not a promoted capability.
 
-### VALIDATE AGAIN
+### VALIDATE
 
 Compare candidate v2 with the current capability under the same bounded
 validation discipline. A candidate must be revalidated before any lifecycle
@@ -85,9 +93,10 @@ decision.
 
 ### HUMAN LIFECYCLE AUTHORITY
 
-The Human Principal owns the final decision to promote, keep, roll back, or
-retire a capability. `PROMOTION_CANDIDATE` is never equivalent to `PROMOTED`,
-`CURRENT`, `ACTIVE`, or `DEFAULT`.
+The Human Principal owns the final decision to promote, keep, reject, roll back,
+retire, or watch a capability. `PROMOTION_CANDIDATE` is not a lifecycle
+endpoint and is never equivalent to `PROMOTED`, `CURRENT`, `ACTIVE`, or
+`DEFAULT`.
 
 ## 3. Current Implementation Truth and Scope
 
@@ -104,6 +113,11 @@ VALIDATE:
   evidence_level: HOST_ATTESTED_BOUNDED_COMPARISON
 
 EVOLVE:
+  status: IMPLEMENTED_BOUNDED_MVP
+  scope: CANDIDATE_ONLY_INSTRUCTION_ARTIFACT
+  evidence_level: CONTRACT_TESTED_NOT_DOGFOOD
+  optional_pre_evolve_validation: INTERVENTION_ABLATION
+AUTO_PROMOTION:
   status: NOT_IMPLEMENTED
 
 WATCH:
@@ -118,11 +132,14 @@ Current Review and Validate results are scoped to their observed experience or
 tested pair. They do not establish universal utility, a reusable capability
 gap, production promotion, or automatic Skill mutation.
 
-A future Principal-authorized product decision may define a minimal versioned
-instruction candidate, candidate-only EVOLVE behavior, and Validate-again
-semantics. Those decisions must remain evidence-gated and Principal-reviewed.
-No candidate is installed, activated, overwritten, promoted, rolled back, or
-retired automatically.
+The bounded EVOLVE MVP accepts a linked Review `TEST` with primary
+`capability_candidate` attribution, observable evidence, source artifact
+identity, and host-proposed instruction content. A linked
+`INTERVENTION_ABLATION` result may strengthen admission but is not universally
+required and need not be `HELPS` merely to create a candidate. It creates a
+versioned, non-active candidate and requires `CAPABILITY_REVISION` before any
+Human lifecycle decision. No candidate is installed, activated, overwritten,
+promoted, rolled back, or retired automatically.
 
 The following remain outside the current product runtime boundary:
 

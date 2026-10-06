@@ -110,6 +110,7 @@ skillnudge bootstrap
 skillnudge advise "我想做一个更好的 UI 原型，但不知道怎样描述自己的需求"
 skillnudge review --stdin
 skillnudge validate --stdin
+skillnudge evolve --stdin
 ```
 
 `review --stdin` 是 provider-free 的 Native Review MVP。在任意无关工作目录中，
@@ -121,6 +122,13 @@ Review 不推断隐藏的 skill 消费，也不宣称介入已经有效。
 任务上比较没有/有精确 instruction intervention 的两臂执行，返回 `HELPS`、`NEUTRAL`、
 `HURTS`、`INCONCLUSIVE` 或 `NOT_EVALUATED`，同时保留 `pair_status`。结果只适用于当前任务、
 宿主、模型和 intervention，不会自动推广或改写 Skill。
+
+`evolve --stdin` 接受满足 Admission Contract 的 `TEST` Review 结果和宿主提出的
+instruction candidate。之前的 `INTERVENTION_ABLATION` 证据可以加强 admission，
+但不是必需条件。EVOLVE 只生成一个非活动的版本化 `CANDIDATE`，不会执行
+Validate、安装、激活、晋升或修改当前 capability。EVOLVE 之后的 `VALIDATE`
+通过 `validate --stdin` 的 `CAPABILITY_REVISION` 模式执行，生命周期决定仍由
+Human 负责。
 
 Phase 1 的 planning 和 judgement 需要通过 `SKILLNUDGE_MODEL_*` 环境变量配置
 OpenAI-compatible provider。请参阅
@@ -175,11 +183,14 @@ Judge
 SkillNudge 是一个证据驱动的能力生命周期：
 
 ```text
-ADVISE -> REVIEW -> VALIDATE -> EVOLVE -> VALIDATE AGAIN
-       -> PROMOTE / ROLLBACK / RETIRE
+ADVISE -> REVIEW -> EVOLVE -> VALIDATE -> DECIDE
+       WATCH（横切观察）
 ```
 
-当前已经发布的 bounded slice 到 REVIEW / VALIDATE 为止，EVOLVE 尚未实现。
+如果 Review 证据仍需加强，可以在 EVOLVE 之前可选执行
+`VALIDATE / INTERVENTION_ABLATION`；`HELPS` 不是强制门槛。
+
+当前已经发布的 bounded slice 包含 REVIEW、VALIDATE 和 candidate-only EVOLVE。
 完整方向与用户体验含义见 [North Star](docs/north-star.md) 和
 [North Star Experience Reference](docs/north-star-experience.md)。
 
@@ -202,6 +213,7 @@ ADVISE -> REVIEW -> VALIDATE -> EVOLVE -> VALIDATE AGAIN
 - 可观察的 Runtime Trace
 - provider-free Native Review（单条可观察 Agent experience）
 - provider-free Native Validate（单条 bounded TEST candidate）
+- provider-free Native EVOLVE（只创建 candidate，不自动晋升）
 - 组合后的 Phase 1 `advise` 开发态 CLI，支持有边界的早停与 resume
 - Candidate Judgement 与最小 Final Advice 运行时代码
 
@@ -214,14 +226,14 @@ ADVISE -> REVIEW -> VALIDATE -> EVOLVE -> VALIDATE AGAIN
 - Phase 2 measurement 仍然只适用于已测试条件，没有建立普遍性的 utility 结论
 - Phase 3 当前有边界的 evidence diagnosis campaign 已完成；
   `reusable_capability_gap=INSUFFICIENT`
-- Phase 4A 正在进行静态 contract/readiness 的 entry hardening
+- Phase 4A entry hardening 是历史输入；产品已具备 bounded candidate-only EVOLVE
 
 ### 尚未发布
 
 - Utility 评估与 Skill Utility Drift 检测
 - 能力演化
 - 多 experience 聚合与 Capability Gap Registry
-- EVOLVE、多 experience 聚合、Capability Gap Registry 与 Watch
+- 自动晋升、多 experience 聚合、Capability Gap Registry 与 Watch
 - Phase 4A runtime、Variant promotion 或 Darwin/SkillOpt evolution
 
 当前仓库是早期实现基线，还不是完整产品，也不是产品质量 benchmark。
@@ -243,21 +255,22 @@ ADVISE -> REVIEW -> VALIDATE -> EVOLVE -> VALIDATE AGAIN
 ### Now
 
 ```text
-ADVISE -> REVIEW -> VALIDATE
+ADVISE -> REVIEW -> EVOLVE -> VALIDATE -> DECIDE
 ```
 
-当前 bounded Native Review / Validate MVP 已发布，结论只适用于对应的
-experience 或 tested pair。
+当前 bounded Native Review 和 candidate-only EVOLVE MVP 已发布。EVOLVE
+之后的 `CAPABILITY_REVISION` Validate 仍只适用于对应的 tested pair，DECIDE
+仍由 Human 负责。
 
 ### Next
 
-在完成产品契约并经过 Principal review 后，定义并实现 candidate-only
-EVOLVE；它必须保留 lineage，并复用现有 bounded Validate surface。
+在新的可观察 Native Host experience 上运行 direct Review -> EVOLVE 路径，
+并记录 bounded 的 EVOLVE 后 Validate decision evidence。
 
 ### Later
 
-再次验证 candidate version，然后支持 Human-owned promote、rollback、retire
-和 cross-cutting utility-drift observation。
+支持更广泛的 experience 聚合、utility-drift observation 和未来的 evolution
+operator；promote、rollback、retire 仍由 Human 负责，不自动执行。
 
 ## 参与贡献
 

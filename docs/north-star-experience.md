@@ -5,8 +5,8 @@
 
 This document describes what a person should be able to experience from
 SkillNudge. It is not a UI specification, workflow diagram, ontology, or
-runtime architecture. The EVOLVE section is a target experience; the current
-runtime status remains `NOT_IMPLEMENTED`.
+runtime architecture. The bounded EVOLVE candidate path is implemented; the
+full autonomous lifecycle remains out of scope.
 
 ## ADVISE
 
@@ -30,7 +30,7 @@ intervention/insufficient evidence. Review keeps event references and
 uncertainty. It does not turn every bad case into a Skill problem and does not
 prove a capability gap or utility.
 
-## VALIDATE
+## INTERVENTION_ABLATION (optional pre-EVOLVE evidence)
 
 When a candidate is worth testing, a person can compare the no-intervention
 condition with the exact intervention on a bounded task:
@@ -42,13 +42,22 @@ SkillNudge preserves task, host, model, harness, tool, environment, artifact,
 and Oracle identity. The result is scoped to that comparison and may be
 positive, neutral, harmful, inconclusive, or not evaluated.
 
+## VALIDATE
+
+After EVOLVE creates a non-active candidate, a person can compare candidate v2
+with current capability v1 under the same bounded task and host conditions.
+This `CAPABILITY_REVISION` result is evidence for the Human-owned DECIDE step;
+it is not an automatic promotion or lifecycle transition.
+
 ## EVOLVE
 
-Only evidence from a valid bounded comparison can justify proposing a changed
-version of a capability. The Host supplies the semantic proposal; SkillNudge
-preserves source identity, parent lineage, exact content, hashes, and evidence
-links. The result is a candidate that must be validated again before any
-promotion decision.
+Review evidence that passes the EVOLVE Admission Contract can justify proposing
+a changed version of a capability. The Host supplies the semantic proposal;
+SkillNudge preserves source identity, parent lineage, exact content, hashes,
+and evidence links. An `INTERVENTION_ABLATION` comparison may strengthen
+admission when attribution or mechanism is uncertain, but is not universally
+required. The result is a non-active candidate that must be compared against
+the current capability before any Human lifecycle decision.
 
 Human Principal authority remains final for promotion, rollback, and
 retirement. SkillNudge never installs, overwrites, activates, promotes,

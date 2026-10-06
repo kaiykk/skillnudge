@@ -7,7 +7,7 @@
 
 **Status:** IMPLEMENTED_BOUNDED_MVP
 
-**Milestone:** Native Review + Validate MVP — CLOSED for the current vertical slice
+**Milestone:** Native Review + Validate + candidate-only EVOLVE MVP — CLOSED for the current vertical slice
 
 **Outcome:**
 
@@ -20,6 +20,18 @@ The host can then pass the `TEST` result to `skillnudge validate --stdin`
 alongside one frozen task and observable Control/Treatment execution records.
 The command returns a scoped pair outcome without requiring a provider or
 starting a lifecycle transition.
+
+With a `TEST` Review whose primary attribution is `capability_candidate`, the
+host can call `skillnudge evolve --stdin` to create a versioned instruction
+candidate directly. A linked `INTERVENTION_ABLATION` result may be supplied as
+optional evidence strengthening when attribution or mechanism is uncertain. The
+candidate is never installed or promoted; `CAPABILITY_REVISION` must compare it
+with the source artifact before the Human Principal makes the lifecycle
+decision.
+
+The direct EVOLVE contract is currently contract-tested but has not received a
+new Native Host dogfood run in this revision. That is an evidence boundary, not
+a provider failure or a utility result.
 
 **Acceptance evidence:**
 
@@ -61,11 +73,11 @@ credential was required.
 - installed Codex discovery and explicit invocation were demonstrated;
 - the default corpus/index produced a real hydrated evidence set.
 
-The Review + Validate MVP is the current shipped runtime Current Outcome. The research
-track has completed a bounded Phase 3 capability-gap diagnosis without
-establishing a reusable gap, and has begun static Phase 4A entry hardening /
-contract-readiness work. Those research milestones do not authorize Variant
-promotion or an automatic evolution loop.
+The Review + Validate + EVOLVE MVP is the current shipped runtime Current
+Outcome. The research track has completed a bounded Phase 3 capability-gap
+diagnosis without establishing a reusable gap; its Phase 4A materials remain
+historical input. Neither research evidence nor this MVP authorizes automatic
+promotion or a general autonomous evolution loop.
 
 The following remain in the Parking Lot or under separate research review: Test
 5 meta-workflow / underlying-task capability confusion; candidate
@@ -81,15 +93,16 @@ artifacts remain in the separate Home Project repository.
 
 - Phase 2 paired experiments;
 - SWE-bench;
-- lifecycle evolution;
+- automatic lifecycle promotion;
 - a provider abstraction framework;
 - implicit triggering;
 - benchmark-level evaluation.
 
 The canonical product GPS is the lifecycle in
 [`docs/north-star.md`](north-star.md); the current shipped coordinate is the
-bounded ADVISE / REVIEW / VALIDATE slice. Do not infer universal utility or
-evolution outcomes from internal implementation progress, completed
+bounded ADVISE / REVIEW / VALIDATE / EVOLVE-candidate slice. Do not infer
+universal utility or promotion outcomes from internal implementation progress,
+completed
 documentation, or passing tests. A new Current Outcome requires an explicit
 project decision.
 
@@ -365,7 +378,7 @@ started by project decision:
 
 - Phase 2 paired experiments;
 - SWE-bench;
-- lifecycle evolution;
+- automatic promotion, rollback, or retirement;
 - new provider or harness frameworks;
 - implicit SkillNudge triggering;
 - large evaluation infrastructure.

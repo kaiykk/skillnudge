@@ -1,6 +1,6 @@
 # Current Product Status
 
-**As of:** 2026-10-05
+**As of:** 2026-10-06
 **Scope:** SkillNudge product repository
 **Evidence detail:** Detailed research receipts remain historical inputs in
 Home Project; this file is the product-facing summary and does not replace
@@ -25,7 +25,7 @@ and the bounded Native Review MVP:
 ### Current Outcome — Native Review + Validate MVP
 
 ```yaml
-current_outcome: REVIEW_VALIDATE_MVP
+current_outcome: REVIEW_EVOLVE_VALIDATE_MVP
 status: IMPLEMENTED_BOUNDED_MVP
 input: one real or sanitized observable Agent experience
 output: TEST | WATCH | NO_INTERVENTION | INSUFFICIENT
@@ -35,7 +35,12 @@ cross_session_aggregation: NOT_IMPLEMENTED
 hidden_reasoning_claim: NONE
 effectiveness_claim: NONE
 validate: IMPLEMENTED_BOUNDED_MVP
-evolve: NOT_IMPLEMENTED
+evolve: IMPLEMENTED_BOUNDED_MVP
+evolve_evidence: HOST_ATTESTED_DIRECT_PATH_DOGFOOD
+native_direct_review_to_evolve: PROVEN_FOR_ONE_BOUNDED_TASK
+capability_revision_outcome: NEUTRAL
+decision_authority: HUMAN_REQUIRED
+auto_promotion: NOT_IMPLEMENTED
 ```
 
 The Review runtime validates a strict host-produced envelope, rejects unknown
@@ -46,8 +51,14 @@ it is not a proven capability gap or utility result. A Validate result is
 scoped to one task/intervention/host/model and does not authorize promotion,
 rewrite, or evolution.
 
-This sync adds the Native Validate MVP while preserving retrieval, planning,
-and Phase 1 runtime behavior.
+EVOLVE now creates one immutable instruction candidate when a linked Review
+`TEST` has primary `capability_candidate` attribution, observable evidence,
+source artifact identity, and valid host-proposed content. A bounded
+`INTERVENTION_ABLATION` result may strengthen admission but is optional and
+does not need to be `HELPS` merely to create a candidate. Post-EVOLVE `VALIDATE`
+reuses the existing `validate` command in `CAPABILITY_REVISION` mode. No candidate is
+installed or promoted. Retrieval, planning, and Phase 1 runtime behavior are
+unchanged.
 
 ## Research-track position
 
@@ -115,10 +126,13 @@ into this product repository.
 
 ## Product-facing next step
 
-The next decision is a controlled Principal review of the existing bounded
-Validate receipt. This review must not turn one pair into universal utility,
-cross-session aggregation, Variant generation, or an evolution loop. It is a
-separate decision from Tickets A/B and does not authorize EVOLVE.
+The direct Review -> EVOLVE -> CAPABILITY_REVISION path has now completed one
+isolated Native Host dogfood. The result is `NEUTRAL` with
+`DECISION_READY / KEEP / HUMAN_REQUIRED`; it does not establish candidate
+utility, a reusable capability gap, cross-session aggregation, automatic
+promotion, or autonomous evolution. The product delivery receipt is
+`docs/product-receipts/direct-review-evolve-native-20261006.md`; the complete
+trajectory and governance packet remain in Home Project.
 
 ```yaml
 home_project:

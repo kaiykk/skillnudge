@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from .bootstrap import default_data_dir
+from .capability_artifact import CapabilityArtifactError, validate_capability_artifact
 
 
 VALIDATION_ENVELOPE_SCHEMA_VERSION = "native.validation-envelope.v0"
@@ -24,6 +25,7 @@ VALIDATION_RESULT_SCHEMA_VERSION = "native.validation-result.v0"
 TRACE_SCHEMA_VERSION = "trace.event.native-validate.v0"
 _DISPOSITIONS = {"TEST"}
 _OUTCOMES = {"HELPS", "NEUTRAL", "HURTS", "INCONCLUSIVE", "NOT_EVALUATED"}
+_COMPARISON_MODES = {"INTERVENTION_ABLATION", "CAPABILITY_REVISION"}
 _PRIVATE_FIELDS = {"chain_of_thought", "hidden_reasoning", "internal_reasoning", "private_reasoning", "scratchpad"}
 
 
@@ -118,19 +120,47 @@ def _validate_review_result(value: Any) -> dict[str, Any]:
 
 def _validate_spec(value: Any) -> dict[str, Any]:
     spec = _mapping(value, "validation_spec")
-    _keys(spec, "validation_spec", {"frozen_at", "task", "intervention", "oracle", "execution"}, {"frozen_at", "task", "intervention", "oracle", "execution"})
+    mode = spec.get("comparison_mode", "INTERVENTION_ABLATION")
+    if mode not in _COMPARISON_MODES:
+        raise ValidationContractError(f"validation_spec.comparison_mode must be one of {sorted(_COMPARISON_MODES)}")
+    required = {"frozen_at", "task", "oracle", "execution"}
+    allowed = required | {"comparison_mode"}
+    if mode == "INTERVENTION_ABLATION":
+        required.add("intervention")
+        allowed.add("intervention")
+    else:
+        required.update({"baseline_capability", "candidate_capability"})
+        allowed.update({"baseline_capability", "candidate_capability"})
+    _keys(spec, "validation_spec", required, allowed)
     frozen_at = _timestamp(spec["frozen_at"], "validation_spec.frozen_at")
     task = _mapping(spec["task"], "validation_spec.task")
     _keys(task, "validation_spec.task", {"task_id", "description", "observable_success_condition"}, {"task_id", "description", "observable_success_condition"})
-    intervention = _mapping(spec["intervention"], "validation_spec.intervention")
-    _keys(intervention, "validation_spec.intervention", {"type", "exact_content", "sha256"}, {"type", "exact_content", "sha256"})
-    if intervention["type"] != "instruction":
-        raise ValidationContractError("validation_spec.intervention.type must be instruction")
-    exact_content = _string(intervention["exact_content"], "validation_spec.intervention.exact_content")
-    expected_hash = _string(intervention["sha256"], "validation_spec.intervention.sha256")
-    actual_hash = hashlib.sha256(exact_content.encode("utf-8")).hexdigest()
-    if expected_hash != actual_hash:
-        raise ValidationContractError("validation_spec.intervention.sha256 does not match exact_content")
+    artifacts: dict[str, Any] = {}
+    intervention: dict[str, Any] | None = None
+    if mode == "INTERVENTION_ABLATION":
+        intervention = _mapping(spec["intervention"], "validation_spec.intervention")
+        _keys(intervention, "validation_spec.intervention", {"type", "exact_content", "sha256"}, {"type", "exact_content", "sha256"})
+        if intervention["type"] != "instruction":
+            raise ValidationContractError("validation_spec.intervention.type must be instruction")
+        exact_content = _string(intervention["exact_content"], "validation_spec.intervention.exact_content")
+        expected_hash = _string(intervention["sha256"], "validation_spec.intervention.sha256")
+        actual_hash = hashlib.sha256(exact_content.encode("utf-8")).hexdigest()
+        if expected_hash != actual_hash:
+            raise ValidationContractError("validation_spec.intervention.sha256 does not match exact_content")
+        intervention = {"type": "instruction", "exact_content": exact_content, "sha256": expected_hash}
+    else:
+        try:
+            baseline = validate_capability_artifact(spec["baseline_capability"], path="validation_spec.baseline_capability")
+            candidate = validate_capability_artifact(spec["candidate_capability"], path="validation_spec.candidate_capability")
+        except CapabilityArtifactError as error:
+            raise ValidationContractError(str(error)) from error
+        if baseline["capability_id"] != candidate["capability_id"]:
+            raise ValidationContractError("baseline and candidate capability_id must match")
+        if baseline["version"] == candidate["version"]:
+            raise ValidationContractError("baseline and candidate version must differ")
+        if baseline["sha256"] == candidate["sha256"]:
+            raise ValidationContractError("baseline and candidate sha256 must differ")
+        artifacts = {"baseline_capability": baseline, "candidate_capability": candidate}
     oracle = _mapping(spec["oracle"], "validation_spec.oracle")
     _keys(oracle, "validation_spec.oracle", {"type", "field", "expected"}, {"type", "field", "expected"})
     if oracle["type"] != "result_field_equals":
@@ -142,13 +172,17 @@ def _validate_spec(value: Any) -> dict[str, Any]:
     _keys(execution, "validation_spec.execution", {"bounded", "mode"}, {"bounded", "mode"})
     if execution["bounded"] is not True or execution["mode"] != "host_observed_arms":
         raise ValidationContractError("validation_spec.execution must be bounded host_observed_arms")
-    return {"frozen_at": frozen_at.isoformat(), "task": {key: _string(task[key], f"validation_spec.task.{key}") for key in ("task_id", "description", "observable_success_condition")}, "intervention": {"type": "instruction", "exact_content": exact_content, "sha256": expected_hash}, "oracle": {"type": "result_field_equals", "field": field, "expected": oracle["expected"]}, "execution": {"bounded": True, "mode": "host_observed_arms"}}
+    normalized = {"frozen_at": frozen_at.isoformat(), "comparison_mode": mode, "task": {key: _string(task[key], f"validation_spec.task.{key}") for key in ("task_id", "description", "observable_success_condition")}, "oracle": {"type": "result_field_equals", "field": field, "expected": oracle["expected"]}, "execution": {"bounded": True, "mode": "host_observed_arms"}}
+    if intervention is not None:
+        normalized["intervention"] = intervention
+    normalized.update(artifacts)
+    return normalized
 
 
-def _validate_arm(value: Any, path: str, *, treatment: bool, intervention_sha256: str) -> dict[str, Any]:
+def _validate_arm(value: Any, path: str, *, treatment: bool, mode: str, intervention_sha256: str | None = None, capability_sha256: str | None = None) -> dict[str, Any]:
     arm = _mapping(value, path)
     required = {"result", "observable_events", "intervention_applied", "intervention_identity", "execution_context", "started_at"}
-    allowed = required | {"execution_valid", "execution_errors"}
+    allowed = required | {"execution_valid", "execution_errors", "capability_identity"}
     _keys(arm, path, required, allowed)
     result = _mapping(arm["result"], f"{path}.result")
     if not result:
@@ -158,11 +192,20 @@ def _validate_arm(value: Any, path: str, *, treatment: bool, intervention_sha256
     if applied != treatment:
         raise ValidationContractError(f"{path}.intervention_applied does not match condition")
     identity = arm.get("intervention_identity")
-    if treatment:
-        if identity != intervention_sha256:
-            raise ValidationContractError(f"{path}.intervention_identity must match frozen intervention hash")
-    elif identity is not None:
-        raise ValidationContractError(f"{path}.intervention_identity must be null for control")
+    capability_identity = arm.get("capability_identity")
+    if mode == "INTERVENTION_ABLATION":
+        if treatment:
+            if identity != intervention_sha256:
+                raise ValidationContractError(f"{path}.intervention_identity must match frozen intervention hash")
+        elif identity is not None:
+            raise ValidationContractError(f"{path}.intervention_identity must be null for control")
+        if capability_identity is not None:
+            raise ValidationContractError(f"{path}.capability_identity is only valid for CAPABILITY_REVISION")
+    else:
+        if identity is not None:
+            raise ValidationContractError(f"{path}.intervention_identity must be null for CAPABILITY_REVISION")
+        if capability_identity != capability_sha256:
+            raise ValidationContractError(f"{path}.capability_identity must match the frozen capability hash")
     context = _mapping(arm["execution_context"], f"{path}.execution_context")
     context_keys = {"task_id", "reference_host", "model", "harness_version", "tool_manifest", "execution_budget", "environment_hash"}
     _keys(context, f"{path}.execution_context", context_keys, context_keys)
@@ -177,7 +220,7 @@ def _validate_arm(value: Any, path: str, *, treatment: bool, intervention_sha256
     execution_errors = arm.get("execution_errors", [])
     if not isinstance(execution_errors, list) or not all(isinstance(item, str) and item.strip() for item in execution_errors):
         raise ValidationContractError(f"{path}.execution_errors must be a list of non-empty strings")
-    return {"result": dict(result), "observable_events": events, "intervention_applied": applied, "intervention_identity": identity, "execution_context": dict(context), "started_at": started_at.isoformat(), "execution_valid": execution_valid, "execution_errors": list(execution_errors)}
+    return {"result": dict(result), "observable_events": events, "intervention_applied": applied, "intervention_identity": identity, "capability_identity": capability_identity, "execution_context": dict(context), "started_at": started_at.isoformat(), "execution_valid": execution_valid, "execution_errors": list(execution_errors)}
 
 
 def _timestamp(value: Any, path: str) -> datetime:
@@ -201,8 +244,15 @@ def validate_validation_envelope(value: Any) -> dict[str, Any]:
     spec = _validate_spec(envelope["validation_spec"])
     execution = _mapping(envelope["execution"], "execution")
     _keys(execution, "execution", {"control", "treatment"}, {"control", "treatment"})
-    control = _validate_arm(execution["control"], "execution.control", treatment=False, intervention_sha256=spec["intervention"]["sha256"])
-    treatment = _validate_arm(execution["treatment"], "execution.treatment", treatment=True, intervention_sha256=spec["intervention"]["sha256"])
+    if spec["comparison_mode"] == "INTERVENTION_ABLATION":
+        identity = spec["intervention"]["sha256"]
+        control_identity = treatment_identity = None
+    else:
+        identity = None
+        control_identity = spec["baseline_capability"]["sha256"]
+        treatment_identity = spec["candidate_capability"]["sha256"]
+    control = _validate_arm(execution["control"], "execution.control", treatment=False, mode=spec["comparison_mode"], intervention_sha256=identity, capability_sha256=control_identity)
+    treatment = _validate_arm(execution["treatment"], "execution.treatment", treatment=True, mode=spec["comparison_mode"], intervention_sha256=identity, capability_sha256=treatment_identity)
     if control["execution_context"] != treatment["execution_context"]:
         raise ValidationContractError("control and treatment execution_context must match exactly")
     task_id = spec["task"]["task_id"]
@@ -247,10 +297,11 @@ def run_validation(envelope: Any, *, run_dir: str | Path | None = None) -> dict[
     trace_path = output_dir / "trace.jsonl"
     _write_json(output_dir / "00_validation_envelope.json", validated)
     _trace(trace_path, run_id, "validation_input_received", {"experience_id": validated["review_result"]["experience_id"]})
-    _trace(trace_path, run_id, "validation_spec_frozen", {"task_id": validated["validation_spec"]["task"]["task_id"], "intervention_sha256": validated["validation_spec"]["intervention"]["sha256"]})
-    _trace(trace_path, run_id, "control_treatment_parity_validated", {"mode": validated["validation_spec"]["execution"]["mode"]})
-    control_oracle = _oracle(validated["execution"]["control"], validated["validation_spec"]["oracle"])
-    treatment_oracle = _oracle(validated["execution"]["treatment"], validated["validation_spec"]["oracle"])
+    spec = validated["validation_spec"]
+    _trace(trace_path, run_id, "validation_spec_frozen", {"task_id": spec["task"]["task_id"], "comparison_mode": spec["comparison_mode"]})
+    _trace(trace_path, run_id, "control_treatment_parity_validated", {"mode": spec["comparison_mode"]})
+    control_oracle = _oracle(validated["execution"]["control"], spec["oracle"])
+    treatment_oracle = _oracle(validated["execution"]["treatment"], spec["oracle"])
     control_pass = control_oracle["success"] is True
     treatment_pass = treatment_oracle["success"] is True
     if treatment_pass and not control_pass:
@@ -268,7 +319,20 @@ def run_validation(envelope: Any, *, run_dir: str | Path | None = None) -> dict[
         treatment_oracle = {"evaluator_valid": False, "status": "not_evaluated", "diagnostics": validated["execution"]["treatment"]["execution_errors"]}
     _trace(trace_path, run_id, "oracle_evaluated", {"control_success": control_pass, "treatment_success": treatment_pass, "evaluated": pair_status == "VALID"})
     context = validated["execution"]["control"]["execution_context"]
-    result = {"schema_version": VALIDATION_RESULT_SCHEMA_VERSION, "run_id": run_id, "experience_id": validated["review_result"]["experience_id"], "task_id": validated["validation_spec"]["task"]["task_id"], "pair_status": pair_status, "validation_result": outcome, "scope": {"task_id": validated["validation_spec"]["task"]["task_id"], "intervention_sha256": validated["validation_spec"]["intervention"]["sha256"], "reference_host": context["reference_host"], "model": context["model"]}, "control": {"oracle": control_oracle, "observable_event_ids": [item["event_id"] for item in validated["execution"]["control"]["observable_events"]]}, "treatment": {"oracle": treatment_oracle, "observable_event_ids": [item["event_id"] for item in validated["execution"]["treatment"]["observable_events"]]}, "limitations": ["One bounded task only.", "Host-observed arm records; no provider or universal utility claim.", "No promotion, rewrite, or lifecycle decision."]}
+    scope = {"task_id": spec["task"]["task_id"], "comparison_mode": spec["comparison_mode"], "reference_host": context["reference_host"], "model": context["model"]}
+    if spec["comparison_mode"] == "INTERVENTION_ABLATION":
+        scope["intervention_sha256"] = spec["intervention"]["sha256"]
+    else:
+        scope["baseline_capability"] = {"capability_id": spec["baseline_capability"]["capability_id"], "version": spec["baseline_capability"]["version"], "sha256": spec["baseline_capability"]["sha256"]}
+        scope["candidate_capability"] = {"capability_id": spec["candidate_capability"]["capability_id"], "version": spec["candidate_capability"]["version"], "sha256": spec["candidate_capability"]["sha256"]}
+    result = {"schema_version": VALIDATION_RESULT_SCHEMA_VERSION, "run_id": run_id, "review_run_id": validated["review_result"]["run_id"], "experience_id": validated["review_result"]["experience_id"], "task_id": spec["task"]["task_id"], "pair_status": pair_status, "validation_result": outcome, "scope": scope, "control": {"oracle": control_oracle, "capability_identity": validated["execution"]["control"].get("capability_identity"), "observable_event_ids": [item["event_id"] for item in validated["execution"]["control"]["observable_events"]]}, "treatment": {"oracle": treatment_oracle, "capability_identity": validated["execution"]["treatment"].get("capability_identity"), "observable_event_ids": [item["event_id"] for item in validated["execution"]["treatment"]["observable_events"]]}, "limitations": ["One bounded task only.", "Host-observed arm records; no provider or universal utility claim.", "No promotion, rewrite, or lifecycle decision."]}
+    if spec["comparison_mode"] == "CAPABILITY_REVISION":
+        if pair_status != "VALID":
+            decision_state = {"status": "NOT_EVALUATED", "suggested_action": "WATCH", "authority": "HUMAN_REQUIRED"}
+        else:
+            suggested_action = {"HELPS": "PROMOTE", "NEUTRAL": "KEEP", "HURTS": "REJECT", "INCONCLUSIVE": "WATCH"}[outcome]
+            decision_state = {"status": "DECISION_READY", "suggested_action": suggested_action, "authority": "HUMAN_REQUIRED"}
+        result["decision_state"] = decision_state
     _write_json(output_dir / "01_validation_result.json", result)
     _trace(trace_path, run_id, "validation_result_emitted", {"pair_status": pair_status, "validation_result": outcome})
     return result

@@ -34,7 +34,8 @@ rewrite a Skill.
 - 输出少量、可解释的建议；
 - 保留可复查 Trace。
 
-这部分是当前 bounded product slice；EVOLVE 尚未实现。
+这部分是当前 bounded product slice；EVOLVE 已实现为 candidate-only MVP，
+仍不会自动晋升。
 
 ## V0.5 — Retrieval Quality / Corpus Freshness
 
@@ -72,22 +73,32 @@ home_project:
   runtime_dependency: NONE
 ```
 
-## Next — Principal Review of Validate Receipt
+## Previous — Principal Review of Validate Receipt
 
-`[CURRENT]` The existing bounded Review → Validate receipt requires Principal
-review of pair validity, Oracle, and scoped outcome. This is a separate
-decision from Tickets A/B; it must not turn one pair into universal utility or
-automatically open EVOLVE.
+`[SUPERSEDED_BY_EVOLVE_REVISION]` The existing bounded Review → Validate
+receipt remains historical evidence. Its pair validity, Oracle, and scoped
+outcome remain separate from the EVOLVE lifecycle revision and do not turn one
+pair into universal utility.
 
-## Later — EVOLVE / WATCH
+## Current — EVOLVE / WATCH boundary
 
-`[FUTURE]` EVOLVE、WATCH 属于后续能力地图：
+`[IMPLEMENTED_BOUNDED_MVP]` EVOLVE 在关联的 Review `TEST`、
+`attribution.primary=capability_candidate`、可解析的 observable evidence
+和 source CapabilityArtifact 存在时创建 versioned instruction candidate。
+`INTERVENTION_ABLATION` 是可选的 pre-EVOLVE evidence-strengthening 路径，
+不是普遍前置条件；随后必须用现有 Validate 的 `CAPABILITY_REVISION` 模式
+再次比较。WATCH 仍是未来的 cross-cutting capability：
 
-- EVOLVE：在有效 bounded validation evidence 后提出 candidate-only 版本；
+- EVOLVE：在 Review admission contract 通过后提出 candidate-only 版本；
 - Watch：观察 model、version、source 和 compatibility drift。
 
-EVOLVE remains candidate-only until implemented and Principal-reviewed. WATCH
-is cross-cutting and is not a sequential phase.
+Evidence level for the revised direct-admission path:
+`CONTRACT_TESTED_NOT_DOGFOOD`. The next product gate is the pending
+Intent-Fidelity → Local-Audit → Global-Recheck sequence; no new Native Host
+dogfood receipt exists yet.
+
+EVOLVE remains candidate-only and Principal-reviewed. WATCH is cross-cutting
+and is not a sequential phase.
 
 ### Historical Phase 3 research boundary
 

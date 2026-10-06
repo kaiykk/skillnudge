@@ -43,6 +43,15 @@ When this Skill is explicitly invoked:
    and validation result. Do not start another task, mutate a Skill, promote a
    Variant, or enter EVOLVE MODE.
 
+   **EVOLVE MODE** consumes a `TEST` Review result with primary
+   `capability_candidate` attribution, observable evidence, a source instruction
+   artifact, and host-proposed candidate content. A linked `VALID` bounded
+   `INTERVENTION_ABLATION` result is optional evidence strengthening. Read
+   `evolve-contract.md`, then call `skillnudge evolve --stdin`. EVOLVE creates
+   a versioned non-active `CANDIDATE` only. It never installs, overwrites,
+   activates, promotes, rolls back, or retires a capability; final lifecycle
+   action always requires the Human Principal after `CAPABILITY_REVISION`.
+
 5. In Advise Mode, perform Capability Framing and produce a bounded
    `capability_framing` object using the installed contract. Then choose
    exactly one Intervention Plan decision:

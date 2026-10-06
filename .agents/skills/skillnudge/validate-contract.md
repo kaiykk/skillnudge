@@ -79,3 +79,17 @@ of the exact instruction bytes; Control carries `null`.
 `pair_status=INVALID` and `validation_result=NOT_EVALUATED`; it is never weak
 utility evidence. The result is scoped to this task/intervention/host/model and
 does not establish a reusable capability gap, promotion, or evolution.
+
+## Post-EVOLVE VALIDATE (`CAPABILITY_REVISION`)
+
+For candidate comparison, set `validation_spec.comparison_mode` to
+`CAPABILITY_REVISION` and replace `intervention` with two immutable
+`native.capability-artifact.v0` objects: `baseline_capability` and
+`candidate_capability`. Both arms retain the same task, host, model, harness,
+tools, budget, environment, and Oracle; Control carries the baseline hash and
+Treatment carries the candidate hash.
+
+A valid `CAPABILITY_REVISION` result yields bounded `decision_state` evidence,
+for example `status: DECISION_READY` and a suggested action such as `PROMOTE`,
+`KEEP`, `REJECT`, or `WATCH`, always with `authority: HUMAN_REQUIRED`. No
+automatic lifecycle mutation occurs and the result is never itself a promotion.

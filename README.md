@@ -115,6 +115,7 @@ skillnudge bootstrap
 skillnudge advise "I want to build a better UI prototype but do not know how to describe it"
 skillnudge review --stdin
 skillnudge validate --stdin
+skillnudge evolve --stdin
 ```
 
 `review --stdin` is the provider-free Native Review MVP. From any unrelated
@@ -128,6 +129,13 @@ then evaluates the same bounded task with and without the exact instruction
 intervention. It returns `HELPS`, `NEUTRAL`, `HURTS`, `INCONCLUSIVE`, or
 `NOT_EVALUATED` together with `pair_status`. Results are scoped to that task,
 host, model, and intervention; they do not promote or rewrite a Skill.
+
+`evolve --stdin` accepts a qualifying `TEST` Review result and a host-proposed
+instruction candidate. Optional prior `INTERVENTION_ABLATION` evidence may
+strengthen admission, but it is not required. EVOLVE emits one non-active
+versioned `CANDIDATE`; it does not validate, install, activate, promote, or
+mutate the current capability. Post-EVOLVE `VALIDATE` uses `validate --stdin`
+with `CAPABILITY_REVISION` and leaves the lifecycle decision Human-required.
 
 Phase 1 planning and judgement require an explicitly configured
 OpenAI-compatible provider through the `SKILLNUDGE_MODEL_*` environment
@@ -182,12 +190,15 @@ hard-coded answer. See [`docs/golden-cases.md`](docs/golden-cases.md).
 SkillNudge is an evidence-driven capability lifecycle:
 
 ```text
-ADVISE -> REVIEW -> VALIDATE -> EVOLVE -> VALIDATE AGAIN
-       -> PROMOTE / ROLLBACK / RETIRE
+ADVISE -> REVIEW -> EVOLVE -> VALIDATE -> DECIDE
+       WATCH (cross-cutting)
 ```
 
-The current shipped slice ends at bounded REVIEW and VALIDATE. EVOLVE is not
-implemented. Read the [North Star](docs/north-star.md) and the
+Optional pre-EVOLVE `VALIDATE / INTERVENTION_ABLATION` may be used when Review
+evidence needs additional strengthening; it is not a mandatory `HELPS` gate.
+
+The current shipped slice includes bounded REVIEW, VALIDATE, and candidate-only
+EVOLVE. Read the [North Star](docs/north-star.md) and the
 [North Star Experience Reference](docs/north-star-experience.md) for the
 canonical product direction and user-facing meaning.
 
@@ -212,6 +223,8 @@ contract; it did not establish a reusable capability gap or Skill defect. See
 - Observable runtime traces
 - Provider-free Native Review of one observable Agent experience
 - Provider-free Native Validate of one bounded TEST candidate
+- Provider-free Native EVOLVE candidate creation from a qualifying Review
+  result, with optional linked `INTERVENTION_ABLATION` evidence
 - Composed Phase 1 `advise` development CLI with bounded early stops and resume
 - Candidate Judgement and minimal Final Advice runtime code
 
@@ -225,14 +238,16 @@ contract; it did not establish a reusable capability gap or Skill defect. See
   utility conclusion is established
 - Phase 3 diagnosis is complete for the current bounded evidence campaign;
   `reusable_capability_gap=INSUFFICIENT`
-- Phase 4A entry hardening is in progress as static contract/readiness work
+- Phase 4A entry hardening remains historical input; the product has a bounded
+  candidate-only EVOLVE path
 
 ### Not yet shipped
 
 - Utility evaluation and Skill Utility Drift detection
 - Capability evolution
 - Multi-experience aggregation and capability-gap registry
-- EVOLVE, multi-experience aggregation, capability-gap registry, and Watch
+- automatic promotion, multi-experience aggregation, capability-gap registry,
+  and Watch
 - Phase 4A runtime execution, Variant promotion, or Darwin/SkillOpt evolution
 
 The repository is an early implementation baseline, not a complete product or
@@ -255,22 +270,23 @@ Four entry points cover the main project context:
 ### Now
 
 ```text
-ADVISE -> REVIEW -> VALIDATE
+ADVISE -> REVIEW -> EVOLVE -> VALIDATE -> DECIDE
 ```
 
-The bounded Native Review and Validate MVPs are shipped and scoped to their
-observed experience or tested pair.
+The bounded Native Review and candidate-only EVOLVE MVPs are shipped. Post-
+EVOLVE `CAPABILITY_REVISION` Validate remains scoped to its tested candidate
+pair, and DECIDE remains Human-owned.
 
 ### Next
 
-Define and implement candidate-only EVOLVE behavior only after the required
-product contract and Principal review. It must preserve lineage and use the
-existing bounded Validate surface again.
+Exercise the direct Review -> EVOLVE path on a fresh observable Native Host
+experience, then record the bounded post-EVOLVE Validate decision evidence.
 
 ### Later
 
-Validate candidate versions again, then support Human-owned promote, rollback,
-or retire decisions and cross-cutting utility-drift observation.
+Support broader experience aggregation, utility-drift observation, and any
+future evolution operators. Human-owned promote, rollback, and retire actions
+remain outside automatic runtime behavior.
 
 ## Contributing
 

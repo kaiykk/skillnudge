@@ -31,6 +31,7 @@ installed_python="$isolated_home/.local/share/skillnudge/venv/bin/python"
 test -s "$HOME/.agents/skills/skillnudge/SKILL.md"
 test -s "$HOME/.agents/skills/skillnudge/review-contract.md"
 test -s "$HOME/.agents/skills/skillnudge/validate-contract.md"
+test -s "$HOME/.agents/skills/skillnudge/evolve-contract.md"
 test -x "$HOME/.local/bin/skillnudge"
 test -x "$installed_python"
 if grep -Fq 'skillnudge advise' "$HOME/.agents/skills/skillnudge/SKILL.md"; then
@@ -49,6 +50,7 @@ fi
     skillnudge retrieve --help >/dev/null
     skillnudge review --help >/dev/null
     skillnudge validate --help >/dev/null
+    skillnudge evolve --help >/dev/null
     bootstrap_json="$(skillnudge bootstrap --json)"
     database_path="$(printf '%s' "$bootstrap_json" | "$installed_python" -c '
 import json
