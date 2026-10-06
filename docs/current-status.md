@@ -161,6 +161,14 @@ runtime change, or lifecycle mutation occurred. Its product-facing receipt is
 `docs/product-receipts/mechanism-grounded-search-episode-0-20261006.md`; the
 full search packet remains in Home Project.
 
+Mechanism-Grounded Autonomous Search Episode 1 completed one matched diagnostic
+P+/P- pair. Both pairs were `VALID / NEUTRAL`; v1 already passed the positive
+probe despite overlapping metadata fields. Mechanism support is therefore
+`WEAKENED`, while natural utility remains `NOT_ESTABLISHED`. The next action is
+`WAIT_FOR_NATURAL_EVIDENCE`; no additional manufactured probe, Darwin, SkillOpt,
+candidate v3, or runtime change is authorized. Product receipt:
+`docs/product-receipts/mechanism-grounded-search-episode-1-20261006.md`.
+
 ```yaml
 home_project:
   role: HISTORICAL_INPUT_ONLY

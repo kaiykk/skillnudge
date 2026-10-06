@@ -122,6 +122,13 @@ is `MORE_EVIDENCE` only for a naturally occurring ambiguous task, not a
 post-hoc benchmark or automatic evolution. See
 [`docs/product-receipts/mechanism-grounded-search-episode-0-20261006.md`](product-receipts/mechanism-grounded-search-episode-0-20261006.md).
 
+Episode 1 ran one matched diagnostic P+/P- pair. Both were `VALID / NEUTRAL`;
+the positive probe did not separate v1 and v2, so mechanism support is
+`WEAKENED`, not established. Designed probes remain diagnostic evidence only;
+natural utility is still `NOT_ESTABLISHED`. The next action is
+`WAIT_FOR_NATURAL_EVIDENCE`, not more post-hoc probes or automatic evolution.
+See [`docs/product-receipts/mechanism-grounded-search-episode-1-20261006.md`](product-receipts/mechanism-grounded-search-episode-1-20261006.md).
+
 EVOLVE remains candidate-only and Principal-reviewed. WATCH is cross-cutting
 and is not a sequential phase.
 

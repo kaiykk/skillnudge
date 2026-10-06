@@ -33,3 +33,8 @@ The Human Principal owns goals, frozen invariants, evidence semantics, and
 lifecycle authority. Agents may autonomously perform bounded hypothesis
 search, experiment selection, evidence accumulation, pruning, and stopping
 inside the frozen frame.
+
+## Evidence Roles
+
+Designed diagnostic probes may support or falsify a mechanism.
+They must never be promoted into natural utility or generalization evidence.
