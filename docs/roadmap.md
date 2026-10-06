@@ -106,6 +106,12 @@ Evidence level for the revised direct-admission path:
 on a real Native Host task. That receipt proves lifecycle execution only; it
 does not establish candidate utility or reusable generalization.
 
+The first Native held-out follow-up evaluated the unchanged candidate v2 on
+H1R and H3. Both pairs were `VALID / NEUTRAL`; no held-out improvement was
+observed. The bounded direction is
+`COLLECT_MORE_DISCRIMINATIVE_EVIDENCE`, not automatic evolution or promotion.
+See [`docs/product-receipts/first-native-heldout-utility-20261006.md`](product-receipts/first-native-heldout-utility-20261006.md) for the product-owned summary.
+
 EVOLVE remains candidate-only and Principal-reviewed. WATCH is cross-cutting
 and is not a sequential phase.
 

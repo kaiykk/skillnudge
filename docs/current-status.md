@@ -144,6 +144,14 @@ was frozen before held-out execution and Human DECIDE remains required. The prod
 `docs/product-receipts/first-utility-bearing-evolution-20261006.md`; raw
 evidence remains in Home Project.
 
+The first Native held-out follow-up evaluated the same frozen v2 on new Native
+Host/model siblings H1R and H3. Both pairs were `VALID / NEUTRAL` with
+complete observable trajectories and independently passing Oracles. Candidate
+utility remains `NOT_ESTABLISHED`; the bounded Evolution Gradient is
+`COLLECT_MORE_DISCRIMINATIVE_EVIDENCE`. The concise product receipt is
+`docs/product-receipts/first-native-heldout-utility-20261006.md`; complete arm
+trajectories and shadow analysis remain in Home Project.
+
 ```yaml
 home_project:
   role: HISTORICAL_INPUT_ONLY
