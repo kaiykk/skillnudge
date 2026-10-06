@@ -58,3 +58,71 @@ The E2E routing envelopes are deliberately constructed product fixtures. They
 prove bounded persistence and routing only. They are
 `WATCH_ROUTING_TEST_EVIDENCE`, not `NATURAL_UTILITY_EVIDENCE`, and do not prove
 candidate utility, mechanism truth, generalization, or promotion.
+
+## Final receipt
+
+```yaml
+BASELINE:
+  name: SkillNudge Autonomous Evolution Baseline v0
+  frozen: true
+  document: docs/autonomous-evolution-baseline-v0.md
+
+MULTI_BRANCH:
+  branches:
+    evidence_need:
+      completed: true
+    watch:
+      completed: true
+    baseline:
+      completed: true
+  integration_completed: true
+  semantic_drift_detected: false
+
+EVIDENCE_NEED:
+  schema_version: native.evidence-need.v0
+  persisted: true
+  survives_process_boundary: true
+  evidence_role: NATURAL_UTILITY_EVIDENCE
+  status: OPEN
+
+WATCH:
+  implemented: true
+  provider_free: true
+  dispositions:
+    - IGNORE
+    - WAKE
+    - INSUFFICIENT
+
+E2E:
+  need_created_in_session_A: true
+  unrelated_experience:
+    separate_session: true
+    result: IGNORE
+  relevant_experience:
+    separate_session: true
+    result: WAKE
+  insufficient_experience:
+    result: INSUFFICIENT
+
+WAKE_BOUNDARY:
+  utility_claim_created: false
+  lifecycle_transition_created: false
+  evolve_called: false
+  validate_called: false
+  darwin_called: false
+  skillopt_called: false
+
+EVIDENCE_ROLES:
+  routing_test_promoted_to_natural_utility: false
+
+PRODUCT:
+  runtime_changed: true
+  tests: 136
+  publish_gate: PASS
+  commit: 3ef905f
+  pushed: true
+
+WATCH_STATUS: IMPLEMENTED_BOUNDED_MVP
+NEXT_BOTTLENECK: Principal review before a natural Native Host experience
+FRAME_REOPEN_REQUIRED: false
+```
