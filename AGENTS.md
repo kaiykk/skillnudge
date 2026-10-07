@@ -1,50 +1,52 @@
-# SkillNudge Agent Invariants
+# SkillNudge Repository Rules
 
-## Eval -> Evolve
+SkillNudge is a control plane connecting real Agent Session evidence to
+traceable Skill version evolution.
 
-Freeze protects against premature drift; evolution protects against frozen
-mistakes.
+## Active product boundary
 
-Classify evaluation failure before changing direction:
+The active tree owns only:
+
+- Skill identity, exact content, hash, and immutable version records;
+- observable Session evidence and trace references;
+- a thin external evolution-operator request/result boundary;
+- candidate lineage and Human accept/reject/rollback/retire decisions.
+
+It does not own search, retrieval, advisor planning, semantic utility
+judgement, benchmark/evaluator frameworks, WATCH, Evidence Need, or operator
+algorithms.
+
+## Engineering invariants
+
+- Every candidate must point to a source Skill/version, operator result, and
+  evidence references.
+- Candidate content is immutable and never automatically replaces an active
+  Skill.
+- Do not store hidden reasoning in Session evidence.
+- Keep operator-native algorithms and result semantics outside SkillNudge;
+  normalize only identity, lineage, provenance, and lifecycle fields.
+- Human authority is required for every active Skill mutation.
+- Prefer narrow, deterministic record validation and atomic persistence.
+
+## Scope gate
+
+Before adding a file or feature, answer:
 
 ```text
-IMPLEMENTATION_FAILURE -> repair inside the current frame
-MODEL_ASSUMPTION_FAILURE -> bounded model repair
-FRAME_CONTRADICTION -> FRAME_REOPEN_CANDIDATE
+Does this directly serve Session -> Skill Evolution?
+What observable capability exists after the change?
+Does it introduce a new lifecycle stage, semantic judge, search system, or
+operator algorithm? If yes, stop and request Principal review.
 ```
 
-A frame-reopen candidate may be triggered by new Human Principal intent, new
-upstream or prior-art evidence, or evidence that a frozen assumption blocks the
-North Star. Agents may propose reopening but may not silently reinterpret a
-frozen rule. Only the Human Principal may amend or supersede a frozen frame.
-Every amendment records the trigger, old rule, new rule, evidence, unchanged
-boundaries, and Principal authority. After ratification, version and freeze the
-frame again, then resume the interrupted work.
+External operator integration is not part of the Repository Reset. Do not start
+Skill Conductor, Darwin, or SkillOpt integration in the reset commit.
 
-## Upstream-First
+## Validation
 
-Before experimentally rediscovering semantics owned by an existing source,
-read the canonical contract and mature prior art, perform the local
-compatibility check, and search only unresolved gaps.
-
-## Authority Boundary
-
-The Human Principal owns goals, frozen invariants, evidence semantics, and
-lifecycle authority. Agents may autonomously perform bounded hypothesis
-search, experiment selection, evidence accumulation, pruning, and stopping
-inside the frozen frame.
-
-## Evidence Roles
-
-Designed diagnostic probes may support or falsify a mechanism.
-They must never be promoted into natural utility or generalization evidence.
-
-## Autonomous Evolution Baseline
-
-The default control model is defined in
-`docs/autonomous-evolution-baseline-v0.md`.
-
-Bounded autonomous search may continue without Principal review while it
-remains inside the frozen frame. Suspended uncertainty may be persisted and
-later reactivated by qualifying evidence, but reactivation is not a utility
-claim or lifecycle mutation.
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py' -v
+python3 -m compileall -q src scripts
+git diff --check
+./scripts/check_publish_gate.sh
+```

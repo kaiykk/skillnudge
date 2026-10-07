@@ -1,5 +1,3 @@
-"""Module entry point for the SkillNudge user-facing CLI."""
-
 from .cli import main
 
 

@@ -1,101 +1,66 @@
-"""Stable user-facing SkillNudge command dispatch."""
+"""Minimal CLI for validating control-plane records."""
 
 from __future__ import annotations
 
-import os
-import sys
 import argparse
+import json
+import sys
+from typing import Any, Callable
+
+from .evidence import validate_session_evidence
+from .lineage import apply_human_decision, validate_candidate
+from .operator import validate_evolution_request, validate_operator_result
+from .skill import validate_skill_version
 
 
-def _has_database_argument(argv: list[str]) -> bool:
-    return "--database" in argv or any(
-        item.startswith("--database=") for item in argv
-    )
+def _read_stdin() -> Any:
+    try:
+        return json.load(sys.stdin)
+    except json.JSONDecodeError as error:
+        raise ValueError(f"stdin must contain one JSON object: {error.msg}") from error
+
+
+def _emit(value: Any) -> int:
+    json.dump(value, sys.stdout, ensure_ascii=False, indent=2, sort_keys=True)
+    sys.stdout.write("\n")
+    return 0
+
+
+def _validator(kind: str) -> Callable[[Any], dict[str, Any]]:
+    validators = {
+        "skill": validate_skill_version,
+        "evidence": validate_session_evidence,
+        "request": validate_evolution_request,
+        "operator-result": validate_operator_result,
+        "candidate": validate_candidate,
+    }
+    try:
+        return validators[kind]
+    except KeyError as error:
+        raise ValueError(f"unknown record kind: {kind}") from error
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = list(sys.argv[1:] if argv is None else argv)
-    if not args or args in (["--help"], ["-h"]):
-        parser = argparse.ArgumentParser(prog="skillnudge")
-        subparsers = parser.add_subparsers(dest="command")
-        subparsers.add_parser("advise", help="run the Phase 1 capability advisor")
-        subparsers.add_parser("bootstrap", help="build the default local corpus/index")
-        subparsers.add_parser(
-            "retrieve",
-            help="run provider-free Native Mode retrieval from a planning envelope",
-        )
-        subparsers.add_parser(
-            "review",
-            help="review one provider-free Native Agent experience",
-        )
-        subparsers.add_parser(
-            "validate",
-            help="validate one TEST intervention on one bounded task",
-        )
-        subparsers.add_parser(
-            "evolve",
-            help=(
-                "create one non-active versioned candidate from a qualifying Review; "
-                "optional INTERVENTION_ABLATION may strengthen admission, but EVOLVE "
-                "does not validate or promote"
-            ),
-        )
-        need = subparsers.add_parser(
-            "need",
-            help="persist one bounded suspended Evidence Need",
-        )
-        need.add_argument("command", nargs="?", choices=["create"])
-        subparsers.add_parser(
-            "watch",
-            help="match one later host experience and continue bounded evidence work",
-        )
-        parser.print_help()
-        return 0
-    if args and args[0] == "bootstrap":
-        from .bootstrap import main as bootstrap_main
-
-        return bootstrap_main(args[1:])
-    if args and args[0] == "advise":
-        if (
-            "--help" not in args
-            and "-h" not in args
-            and not _has_database_argument(args)
-            and not os.environ.get("SKILLNUDGE_DATABASE")
-        ):
-            from .bootstrap import bootstrap_default_index
-
-            database_path = bootstrap_default_index().database_path
-            args.extend(["--database", database_path])
-        from .phase1 import main as phase1_main
-
-        return phase1_main(args)
-    if args and args[0] == "retrieve":
-        from .native import main as native_main
-
-        return native_main(args[1:])
-    if args and args[0] == "review":
-        from .review import main as review_main
-
-        return review_main(args[1:])
-    if args and args[0] == "validate":
-        from .validate import main as validate_main
-
-        return validate_main(args[1:])
-    if args and args[0] == "evolve":
-        from .evolve import main as evolve_main
-
-        return evolve_main(args[1:])
-    if args and args[0] == "need":
-        from .evidence_need import main as need_main
-
-        return need_main(args[1:])
-    if args and args[0] == "watch":
-        from .watch import main as watch_main
-
-        return watch_main(args[1:])
-    from .phase1 import main as phase1_main
-
-    return phase1_main(args)
+    parser = argparse.ArgumentParser(
+        prog="skillnudge",
+        description="Validate and carry traceable Skill evolution records.",
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    validate = subparsers.add_parser("validate", help="validate one JSON record")
+    validate.add_argument("kind", choices=["skill", "evidence", "request", "operator-result", "candidate"])
+    validate.add_argument("--stdin", action="store_true", required=True)
+    decide = subparsers.add_parser("candidate-decide", help="record one Human candidate decision")
+    decide.add_argument("decision", choices=["ACCEPTED", "REJECTED", "ROLLED_BACK", "RETIRED"])
+    decide.add_argument("--stdin", action="store_true", required=True)
+    args = parser.parse_args(argv)
+    try:
+        value = _read_stdin()
+        if args.command == "validate":
+            return _emit(_validator(args.kind)(value))
+        return _emit(apply_human_decision(value, args.decision))
+    except (ValueError, KeyError, TypeError) as error:
+        print(f"skillnudge: {error}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":
