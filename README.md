@@ -140,10 +140,12 @@ mutate the current capability. Post-EVOLVE `VALIDATE` uses `validate --stdin`
 with `CAPABILITY_REVISION` and leaves the lifecycle decision Human-required.
 
 `need create --stdin` persists one bounded unresolved Evidence Need outside the
-source checkout. `watch --stdin` reloads that need in a later process and
+source checkout. `watch --stdin` reloads that need in a later process, exposes
+its exact `unresolved_question` and `interesting_future_event` to the Host, and
 returns `IGNORE`, `WAKE`, or `INSUFFICIENT` for one host-observed experience.
-WATCH is provider-free and does not claim utility, promote a candidate, or
-advance the lifecycle. See
+The core rejects a stale condition context but does not perform semantic text
+matching. WATCH is provider-free and does not claim utility, promote a
+candidate, or advance the lifecycle. See
 [`docs/autonomous-evolution-baseline-v0.md`](docs/autonomous-evolution-baseline-v0.md).
 
 Phase 1 planning and judgement require an explicitly configured

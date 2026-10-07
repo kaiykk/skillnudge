@@ -48,11 +48,15 @@ def need_value(status="OPEN"):
     }
 
 
-def watch_value(disposition="WAKE", *, role="WATCH_ROUTING_TEST_EVIDENCE"):
-    events = [{"event_id": "evt-1", "kind": "agent_action", "summary": "The host recorded an observable record identity decision.", "source_ref": "fixture://watch/evt-1"}]
+def watch_value(disposition="WAKE", *, role="WATCH_ROUTING_TEST_EVIDENCE", summary="The host recorded an observable record identity decision."):
+    events = [{"event_id": "evt-1", "kind": "agent_action", "summary": summary, "source_ref": "fixture://watch/evt-1"}]
     return {
         "schema_version": WATCH_ENVELOPE_SCHEMA_VERSION,
         "need_id": "need-episode-1",
+        "need_context": {
+            "unresolved_question": need_value()["unresolved_question"],
+            "interesting_future_event": need_value()["interesting_future_event"],
+        },
         "experience": {
             "experience_id": "experience-later-1",
             "evidence_role": role,
@@ -102,6 +106,44 @@ class WatchTests(unittest.TestCase):
             value["assessment"]["evidence_refs"] = ["missing"]
             with self.assertRaises(WatchValidationError):
                 run_watch(value, data_dir=directory, run_dir=Path(directory) / "bad")
+
+    def test_interesting_future_event_is_loaded_from_persisted_need(self):
+        with tempfile.TemporaryDirectory() as directory:
+            create_evidence_need(need_value(), data_dir=directory)
+            result = run_watch(watch_value("WAKE"), data_dir=directory, run_dir=Path(directory) / "wake")
+            self.assertEqual(result["need_context"]["interesting_future_event"], need_value()["interesting_future_event"])
+            trace = (Path(directory) / "wake" / "trace.jsonl").read_text(encoding="utf-8")
+            self.assertIn('"event": "interesting_future_event_loaded"', trace)
+
+    def test_host_condition_sequence_with_one_persisted_need(self):
+        cases = [
+            ("condition not yet instantiated", "IGNORE"),
+            ("topically related only", "IGNORE"),
+            ("observable evidence is insufficient", "INSUFFICIENT"),
+            ("record identity ambiguity occurred", "WAKE"),
+            ("equivalent record identity ambiguity occurred", "WAKE"),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            create_evidence_need(need_value(), data_dir=directory)
+            for index, (summary, expected) in enumerate(cases):
+                result = run_watch(
+                    watch_value(expected, summary=summary),
+                    data_dir=directory,
+                    run_dir=Path(directory) / f"sequence-{index}",
+                )
+                self.assertEqual(result["disposition"], expected)
+                self.assertEqual(result["need_context"]["interesting_future_event"], need_value()["interesting_future_event"])
+                self.assertFalse(result["utility_claim"])
+                self.assertIsNone(result["lifecycle_transition"])
+            self.assertEqual(load_evidence_need("need-episode-1", data_dir=directory)["status"], "OPEN")
+
+    def test_need_context_must_match_persisted_need(self):
+        with tempfile.TemporaryDirectory() as directory:
+            create_evidence_need(need_value(), data_dir=directory)
+            value = watch_value("WAKE")
+            value["need_context"]["interesting_future_event"] = "a different condition"
+            with self.assertRaisesRegex(WatchValidationError, "need_context does not match"):
+                run_watch(value, data_dir=directory, run_dir=Path(directory) / "mismatch")
 
     def test_closed_need_rejected(self):
         with tempfile.TemporaryDirectory() as directory:

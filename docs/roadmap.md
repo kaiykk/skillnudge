@@ -25,13 +25,15 @@ rewrite a Skill.
 ## Current — Suspended uncertainty WATCH slice (2026-10-06)
 
 `[IMPLEMENTED_BOUNDED_MVP]` One `OPEN` Evidence Need can be persisted with a
-candidate identity, unresolved question, evidence role, scope and source
-references, then loaded by a later process. `skillnudge watch --stdin`
-validates one host-produced experience and returns `IGNORE`, `WAKE`, or
-`INSUFFICIENT` with observable event references. The provider-free result
-keeps the need open and explicitly creates no utility claim or lifecycle
-transition. This is one bounded persisted need plus later matching, not a
-generic monitoring or aggregation system.
+candidate identity, unresolved question, evidence role, scope, source
+references and an `interesting_future_event`, then loaded by a later process.
+The v1 `skillnudge watch --stdin` envelope exposes the exact persisted
+`unresolved_question` and `interesting_future_event` to the Host and rejects a
+changed condition context. The Host returns `IGNORE`, `WAKE` or `INSUFFICIENT`
+with observable event references. The provider-free result keeps the need open
+and explicitly creates no utility claim or lifecycle transition. This is one
+bounded persisted need plus later condition matching, not a generic monitoring
+or aggregation system.
 
 ## Evolution Gradient (frozen concept, 2026-10-06)
 

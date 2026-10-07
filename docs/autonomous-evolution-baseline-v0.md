@@ -37,13 +37,16 @@ premature drift; Evolution protects against frozen mistakes.
 
 An `Evidence Need` is one persisted `OPEN` unresolved question. It is not a
 capability gap, utility result, candidate, promotion state, or lifecycle stage.
-`WATCH` loads one open need and one later host-observed experience, then emits
-exactly one of `IGNORE`, `WAKE`, or `INSUFFICIENT`.
+`WATCH` loads one open need and one later host-observed experience, exposes the
+persisted `unresolved_question` and `interesting_future_event` to the Host,
+then emits exactly one of `IGNORE`, `WAKE`, or `INSUFFICIENT`. The core checks
+that this context is unchanged; it does not perform semantic text matching.
 
 `WAKE` is only a persisted receipt. It does not run Review, Validate, Evolve,
 Darwin, SkillOpt, promotion, or any lifecycle mutation. The host remains the
-semantic authority; SkillNudge validates identity, evidence references,
-scope, persistence, and the bounded result.
+semantic authority; SkillNudge validates identity, the exact persisted
+condition context, evidence references, scope, persistence, and the bounded
+result.
 
 This slice is provider-free and supports one persisted need plus later
 matching. It is not a daemon, scheduler, generic event bus, registry,

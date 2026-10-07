@@ -133,9 +133,11 @@ Validate、安装、激活、晋升或修改当前 capability。EVOLVE 之后的
 Human 负责。
 
 `need create --stdin` 会在源码目录之外持久化一条有边界的未解决 Evidence
-Need。`watch --stdin` 会在后续进程重新加载它，并针对一条宿主观察到的
-experience 返回 `IGNORE`、`WAKE` 或 `INSUFFICIENT`。WATCH 不需要 provider，
-不会宣称 utility、晋升 candidate，也不会推进生命周期。详见
+Need。`watch --stdin` 会在后续进程重新加载它，把持久化的
+`unresolved_question` 和 `interesting_future_event` 原样提供给 Host，再针对
+一条宿主观察到的 experience 返回 `IGNORE`、`WAKE` 或 `INSUFFICIENT`。
+Core 会拒绝被修改的条件上下文，但不在确定性逻辑中做语义文本匹配。
+WATCH 不需要 provider，不会宣称 utility、晋升 candidate，也不会推进生命周期。详见
 [`docs/autonomous-evolution-baseline-v0.md`](docs/autonomous-evolution-baseline-v0.md)。
 
 Phase 1 的 planning 和 judgement 需要通过 `SKILLNUDGE_MODEL_*` 环境变量配置

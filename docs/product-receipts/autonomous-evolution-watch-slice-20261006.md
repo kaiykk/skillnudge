@@ -11,8 +11,11 @@
 `skillnudge need create --stdin` persists one `native.evidence-need.v0` with
 candidate identity, question, why the question remains open, evidence role, scope and source references under
 the per-user SkillNudge data directory. `skillnudge watch --stdin` reloads an
-`OPEN` need and validates one host-produced experience against that identity
-and scope.
+`OPEN` need and validates one host-produced experience against that identity,
+scope, and the exact persisted `unresolved_question`/
+`interesting_future_event` context. The v0 receipt below is the historical
+baseline; the operational v1 slice is recorded in
+`interesting-future-event-watch-20261007.md`.
 
 The only dispositions are `IGNORE`, `WAKE`, and `INSUFFICIENT`. The result
 contains event references and explicit non-claims:

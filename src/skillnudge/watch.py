@@ -14,8 +14,8 @@ from .bootstrap import default_data_dir
 from .evidence_need import EvidenceNeedError, load_evidence_need
 
 
-WATCH_ENVELOPE_SCHEMA_VERSION = "native.watch-envelope.v0"
-WATCH_RESULT_SCHEMA_VERSION = "native.watch-result.v0"
+WATCH_ENVELOPE_SCHEMA_VERSION = "native.watch-envelope.v1"
+WATCH_RESULT_SCHEMA_VERSION = "native.watch-result.v1"
 TRACE_SCHEMA_VERSION = "trace.event.native-watch.v0"
 _DISPOSITIONS = {"IGNORE", "WAKE", "INSUFFICIENT"}
 _EXPERIENCE_ROLES = {"NATIVE_HOST_EXPERIENCE", "WATCH_ROUTING_TEST_EVIDENCE"}
@@ -106,12 +106,23 @@ def _validate_experience(value: Any, need: Mapping[str, Any]) -> tuple[dict[str,
 def validate_watch_envelope(value: Any, need: Mapping[str, Any]) -> dict[str, Any]:
     _scan_private(value)
     envelope = _mapping(value, "envelope")
-    _keys(envelope, "envelope", {"schema_version", "need_id", "experience", "assessment"}, {"schema_version", "need_id", "experience", "assessment"})
+    _keys(envelope, "envelope", {"schema_version", "need_id", "need_context", "experience", "assessment"}, {"schema_version", "need_id", "need_context", "experience", "assessment"})
     if envelope["schema_version"] != WATCH_ENVELOPE_SCHEMA_VERSION:
         raise WatchValidationError(f"schema_version must be {WATCH_ENVELOPE_SCHEMA_VERSION!r}")
     need_id = _string(envelope["need_id"], "need_id")
     if need_id != need["need_id"]:
         raise WatchValidationError("need_id does not match the loaded Evidence Need")
+    need_context = _mapping(envelope["need_context"], "need_context")
+    _keys(need_context, "need_context", {"unresolved_question", "interesting_future_event"}, {"unresolved_question", "interesting_future_event"})
+    normalized_need_context = {
+        key: _string(need_context[key], f"need_context.{key}")
+        for key in ("unresolved_question", "interesting_future_event")
+    }
+    expected_need_context = {
+        key: need[key] for key in ("unresolved_question", "interesting_future_event")
+    }
+    if normalized_need_context != expected_need_context:
+        raise WatchValidationError("need_context does not match the persisted Evidence Need")
     experience, event_ids = _validate_experience(envelope["experience"], need)
     assessment = _mapping(envelope["assessment"], "assessment")
     _keys(assessment, "assessment", {"disposition", "rationale", "evidence_refs"}, {"disposition", "rationale", "evidence_refs"})
@@ -122,7 +133,17 @@ def validate_watch_envelope(value: Any, need: Mapping[str, Any]) -> dict[str, An
     unknown_refs = sorted(set(refs) - event_ids)
     if unknown_refs:
         raise WatchValidationError(f"assessment.evidence_refs references unknown event_id values: {unknown_refs}")
-    return {"schema_version": WATCH_ENVELOPE_SCHEMA_VERSION, "need_id": need_id, "experience": experience, "assessment": {"disposition": disposition, "rationale": _string(assessment["rationale"], "assessment.rationale"), "evidence_refs": refs}}
+    return {
+        "schema_version": WATCH_ENVELOPE_SCHEMA_VERSION,
+        "need_id": need_id,
+        "need_context": normalized_need_context,
+        "experience": experience,
+        "assessment": {
+            "disposition": disposition,
+            "rationale": _string(assessment["rationale"], "assessment.rationale"),
+            "evidence_refs": refs,
+        },
+    }
 
 
 def default_watch_run_dir(data_dir: str | Path | None = None) -> Path:
@@ -159,12 +180,19 @@ def run_watch(envelope: Any, *, data_dir: str | Path | None = None, run_dir: str
     trace_path = output_dir / "trace.jsonl"
     _write_json(output_dir / "00_watch_envelope.json", validated)
     _append_trace(trace_path, run_id, "evidence_need_loaded", {"need_id": need_id, "status": need["status"]})
+    _append_trace(
+        trace_path,
+        run_id,
+        "interesting_future_event_loaded",
+        {"need_id": need_id, "interesting_future_event": validated["need_context"]["interesting_future_event"]},
+    )
     _append_trace(trace_path, run_id, "experience_validated", {"experience_id": validated["experience"]["experience_id"], "evidence_role": validated["experience"]["evidence_role"]})
     _append_trace(trace_path, run_id, "evidence_refs_validated", {"event_ids": validated["assessment"]["evidence_refs"]})
     _append_trace(trace_path, run_id, "watch_disposition_recorded", {"disposition": validated["assessment"]["disposition"]})
     result = {
         "schema_version": WATCH_RESULT_SCHEMA_VERSION,
         "need_id": need_id,
+        "need_context": validated["need_context"],
         "experience_id": validated["experience"]["experience_id"],
         "disposition": validated["assessment"]["disposition"],
         "rationale": validated["assessment"]["rationale"],
