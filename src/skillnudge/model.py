@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from pathlib import Path
 import re
 from typing import Any, Mapping
 
@@ -111,4 +112,102 @@ def validate_candidate(value: Any) -> dict[str, Any]:
         "operator_ref": _string(candidate["operator_ref"], "candidate.operator_ref"),
         "evidence": evidence,
         "human_decision": decision,
+    }
+
+
+def build_skillopt_sleep_tasks(
+    session: Any,
+    source_skill: Any,
+    *,
+    project: str,
+    target_skill_path: str,
+    source_skill_path: str | None = None,
+    intent: str,
+    context_excerpt: str,
+    attempted_solution: str,
+    outcome: str = "fail",
+    reference_kind: str = "none",
+    reference: str = "",
+    tags: list[str] | None = None,
+    skill_hint: str = "",
+    transcript_source: str = "codex",
+) -> dict[str, Any]:
+    """Build one reviewed-task handoff for SkillOpt-Sleep.
+
+    SkillOpt-Sleep already owns harvesting, replay, gating, staging, and
+    adoption. This function only translates one validated observable Session
+    reference into its native task-file shape and keeps the source Skill and
+    feedback lineage in a sidecar at the handoff boundary. SkillOpt-Sleep does
+    not propagate arbitrary sidecar fields into its reports or staging
+    manifest, so callers must retain the handoff payload for the later join.
+    When ``source_skill_path`` is supplied, the exact file content is checked
+    against the source Skill hash before a handoff is emitted. The handoff is
+    deliberately unreviewed until a Human inspects and sets the task file's
+    ``reviewed`` field before a real provider run.
+    """
+
+    evidence = validate_session_reference(session, path="session")
+    skill = validate_skill(source_skill, path="source_skill")
+    for value, path in (
+        (project, "project"),
+        (target_skill_path, "target_skill_path"),
+        (intent, "intent"),
+        (context_excerpt, "context_excerpt"),
+        (attempted_solution, "attempted_solution"),
+        (outcome, "outcome"),
+        (reference_kind, "reference_kind"),
+        (transcript_source, "transcript_source"),
+    ):
+        _string(value, path)
+    if not isinstance(reference, str):
+        raise ModelError("reference must be a string")
+    if not isinstance(skill_hint, str):
+        raise ModelError("skill_hint must be a string")
+    if source_skill_path is not None:
+        _string(source_skill_path, "source_skill_path")
+        try:
+            on_disk_content = Path(source_skill_path).read_text(encoding="utf-8")
+        except OSError as exc:
+            raise ModelError(f"source_skill_path cannot be read: {exc}") from exc
+        if on_disk_content != skill["content"]:
+            raise ModelError("source_skill_path content does not match source_skill.content")
+    if tags is not None and (
+        not isinstance(tags, list)
+        or not all(isinstance(tag, str) and tag.strip() for tag in tags)
+    ):
+        raise ModelError("tags must be a list of non-empty strings")
+
+    task = {
+        "id": f"{evidence['session_id']}-skillnudge-handoff",
+        "project": project,
+        "intent": intent,
+        "context_excerpt": context_excerpt,
+        "attempted_solution": attempted_solution,
+        "outcome": outcome,
+        "reference_kind": reference_kind,
+        "reference": reference,
+        "tags": list(tags or []),
+        "source_sessions": [evidence["session_id"]],
+        "split": "train",
+        "origin": "real",
+        "skill_hint": skill_hint or skill["skill_id"],
+    }
+    return {
+        "format": "skillopt_sleep.tasks.v1",
+        "project": project,
+        "transcript_source": transcript_source,
+        "n_sessions": 1,
+        "target_skill_path": target_skill_path,
+        "reviewed": False,
+        "tasks": [task],
+        "skillnudge_provenance": {
+            "session_id": evidence["session_id"],
+            "trace_ref": evidence["trace_ref"],
+            "feedback_refs": evidence["feedback_refs"],
+            "source_skill": {
+                "skill_id": skill["skill_id"],
+                "version": skill["version"],
+                "sha256": skill["sha256"],
+            },
+        },
     }
