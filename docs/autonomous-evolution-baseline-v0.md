@@ -42,11 +42,16 @@ persisted `unresolved_question` and `interesting_future_event` to the Host,
 then emits exactly one of `IGNORE`, `WAKE`, or `INSUFFICIENT`. The core checks
 that this context is unchanged; it does not perform semantic text matching.
 
-`WAKE` is only a persisted receipt. It does not run Review, Validate, Evolve,
-Darwin, SkillOpt, promotion, or any lifecycle mutation. The host remains the
-semantic authority; SkillNudge validates identity, the exact persisted
-condition context, evidence references, scope, persistence, and the bounded
-result.
+On `WAKE`, the provider-free core also persists a minimal reactivation context
+for the Host. It contains the exact Need identity and subject, the unresolved
+question, the persisted wake condition, the Need's source evidence references,
+the new wake evidence references, and the observed execution context. This is
+a bounded handoff for continuing evidence work; it is not an answer to the
+question and does not run Review, Validate, Evolve, Darwin, SkillOpt,
+promotion, or any lifecycle mutation. `IGNORE` and `INSUFFICIENT` do not create
+this context. The host remains the semantic authority; SkillNudge validates
+identity, the exact persisted condition context, evidence references, scope,
+persistence, and the bounded result.
 
 This slice is provider-free and supports one persisted need plus later
 matching. It is not a daemon, scheduler, generic event bus, registry,

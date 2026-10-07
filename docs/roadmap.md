@@ -30,10 +30,12 @@ references and an `interesting_future_event`, then loaded by a later process.
 The v1 `skillnudge watch --stdin` envelope exposes the exact persisted
 `unresolved_question` and `interesting_future_event` to the Host and rejects a
 changed condition context. The Host returns `IGNORE`, `WAKE` or `INSUFFICIENT`
-with observable event references. The provider-free result keeps the need open
-and explicitly creates no utility claim or lifecycle transition. This is one
-bounded persisted need plus later condition matching, not a generic monitoring
-or aggregation system.
+with observable event references. A `WAKE` produces a v2 result plus a
+persisted, minimal reactivation context that a later Host process can consume
+for one bounded continuation step. The Need stays `OPEN`; no utility claim,
+lifecycle transition, scheduler, or automatic follow-up is created. This is
+one bounded persisted need plus later condition matching and handoff, not a
+generic monitoring or aggregation system.
 
 ## Evolution Gradient (frozen concept, 2026-10-06)
 

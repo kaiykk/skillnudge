@@ -42,7 +42,7 @@ capability_revision_outcome: NEUTRAL
 decision_authority: HUMAN_REQUIRED
 auto_promotion: NOT_IMPLEMENTED
 watch: IMPLEMENTED_BOUNDED_MVP
-watch_scope: PERSISTED_INTERESTING_FUTURE_EVENT_MATCH_AND_WAKE
+watch_scope: PERSISTED_INTERESTING_FUTURE_EVENT_MATCH_WAKE_AND_REACTIVATE
 watch_provider: NONE
 watch_cross_session_persistence: PROVEN_BOUNDED
 watch_automatic_lifecycle_transition: false
@@ -70,12 +70,16 @@ The bounded WATCH slice persists one open Evidence Need outside the source
 checkout and reloads it in a later process. The v1 WATCH envelope carries the
 exact persisted `unresolved_question` and `interesting_future_event` to the
 Host; SkillNudge rejects a stale or altered condition context before recording
-the Host's `IGNORE`, `WAKE`, or `INSUFFICIENT` result. `WAKE` only records that
-the stored future condition is worth reopening; it is not a utility claim,
-lifecycle transition, or automatic follow-up. Generic cross-session
+the Host's `IGNORE`, `WAKE`, or `INSUFFICIENT` result. On `WAKE`, the v2 result
+also persists `02_reactivation_context.json`, a minimal Host handoff containing
+the suspended question and both source and wake evidence references. A later
+Host process can consume that handoff for one bounded continuation step. This
+does not answer the question, close the Need, claim utility, advance the
+lifecycle, schedule work, or aggregate events. Generic cross-session
 aggregation, scheduling and autonomous evolution remain unimplemented.
-The product receipt for this condition-context slice is
-`docs/product-receipts/interesting-future-event-watch-20261007.md`.
+The product receipts for this slice are
+`docs/product-receipts/interesting-future-event-watch-20261007.md` and
+`docs/product-receipts/wake-reactivation-20261007.md`.
 
 ## Research-track position
 

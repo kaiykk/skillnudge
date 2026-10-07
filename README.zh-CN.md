@@ -136,8 +136,11 @@ Human 负责。
 Need。`watch --stdin` 会在后续进程重新加载它，把持久化的
 `unresolved_question` 和 `interesting_future_event` 原样提供给 Host，再针对
 一条宿主观察到的 experience 返回 `IGNORE`、`WAKE` 或 `INSUFFICIENT`。
-Core 会拒绝被修改的条件上下文，但不在确定性逻辑中做语义文本匹配。
-WATCH 不需要 provider，不会宣称 utility、晋升 candidate，也不会推进生命周期。详见
+当结果为 `WAKE` 时，结果中还会包含并持久化最小的
+`reactivation_context`，带上挂起的问题、原始 evidence refs 和新的 wake
+evidence refs，供后续 Host 进程执行一次有边界的 continuation step。Core
+会拒绝被修改的条件上下文，但不在确定性逻辑中做语义文本匹配。WATCH
+不需要 provider、保持 Need 为 OPEN，不会宣称 utility、晋升 candidate，也不会推进生命周期。详见
 [`docs/autonomous-evolution-baseline-v0.md`](docs/autonomous-evolution-baseline-v0.md)。
 
 Phase 1 的 planning 和 judgement 需要通过 `SKILLNUDGE_MODEL_*` 环境变量配置

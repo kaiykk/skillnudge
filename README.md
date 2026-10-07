@@ -143,9 +143,12 @@ with `CAPABILITY_REVISION` and leaves the lifecycle decision Human-required.
 source checkout. `watch --stdin` reloads that need in a later process, exposes
 its exact `unresolved_question` and `interesting_future_event` to the Host, and
 returns `IGNORE`, `WAKE`, or `INSUFFICIENT` for one host-observed experience.
-The core rejects a stale condition context but does not perform semantic text
-matching. WATCH is provider-free and does not claim utility, promote a
-candidate, or advance the lifecycle. See
+On `WAKE`, the result also contains and persists a minimal
+`reactivation_context` with the suspended question, source evidence refs, and
+new wake evidence refs so a later Host process can perform one bounded
+continuation step. The core rejects a stale condition context but does not
+perform semantic text matching. WATCH is provider-free, keeps the Need open,
+and does not claim utility, promote a candidate, or advance the lifecycle. See
 [`docs/autonomous-evolution-baseline-v0.md`](docs/autonomous-evolution-baseline-v0.md).
 
 Phase 1 planning and judgement require an explicitly configured

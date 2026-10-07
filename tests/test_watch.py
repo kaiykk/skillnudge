@@ -20,6 +20,7 @@ from skillnudge.evidence_need import (
 )
 from skillnudge.watch import (
     WATCH_ENVELOPE_SCHEMA_VERSION,
+    WATCH_REACTIVATION_SCHEMA_VERSION,
     WatchValidationError,
     run_watch,
 )
@@ -114,6 +115,54 @@ class WatchTests(unittest.TestCase):
             self.assertEqual(result["need_context"]["interesting_future_event"], need_value()["interesting_future_event"])
             trace = (Path(directory) / "wake" / "trace.jsonl").read_text(encoding="utf-8")
             self.assertIn('"event": "interesting_future_event_loaded"', trace)
+
+    def test_wake_creates_bounded_reactivation_context(self):
+        with tempfile.TemporaryDirectory() as directory:
+            create_evidence_need(need_value(), data_dir=directory)
+            run_dir = Path(directory) / "wake"
+            result = run_watch(watch_value("WAKE"), data_dir=directory, run_dir=run_dir)
+            context = result["reactivation_context"]
+            self.assertEqual(context["schema_version"], WATCH_REACTIVATION_SCHEMA_VERSION)
+            self.assertEqual(context["need_id"], "need-episode-1")
+            self.assertEqual(context["subject"], need_value()["subject"])
+            self.assertEqual(context["unresolved_question"], need_value()["unresolved_question"])
+            self.assertEqual(context["interesting_future_event"], need_value()["interesting_future_event"])
+            self.assertEqual(context["source_evidence_refs"], need_value()["source_evidence_refs"])
+            self.assertEqual(context["wake_evidence_refs"], ["evt-1"])
+            self.assertEqual(context["execution_context"], need_value()["scope"])
+            persisted = json.loads((run_dir / "02_reactivation_context.json").read_text(encoding="utf-8"))
+            self.assertEqual(persisted, context)
+            trace = (run_dir / "trace.jsonl").read_text(encoding="utf-8")
+            self.assertIn('"event": "reactivation_context_created"', trace)
+
+    def test_non_wake_does_not_create_reactivation_context(self):
+        with tempfile.TemporaryDirectory() as directory:
+            create_evidence_need(need_value(), data_dir=directory)
+            for disposition in ("IGNORE", "INSUFFICIENT"):
+                run_dir = Path(directory) / disposition.lower()
+                result = run_watch(watch_value(disposition), data_dir=directory, run_dir=run_dir)
+                self.assertIsNone(result["reactivation_context"])
+                self.assertFalse((run_dir / "02_reactivation_context.json").exists())
+
+    def test_cross_process_host_can_consume_wake_context(self):
+        with tempfile.TemporaryDirectory() as directory:
+            create_evidence_need(need_value(), data_dir=directory)
+            run_dir = Path(directory) / "wake"
+            run_watch(watch_value("WAKE"), data_dir=directory, run_dir=run_dir)
+            script = (
+                "import json, sys; "
+                "context=json.load(open(sys.argv[1])); "
+                "assert context['unresolved_question']; "
+                "assert context['wake_evidence_refs'] == ['evt-1']; "
+                "print('HOST_CONTINUATION_STEP_READY')"
+            )
+            completed = subprocess.run(
+                [sys.executable, "-c", script, str(run_dir / "02_reactivation_context.json")],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            self.assertEqual(completed.stdout.strip(), "HOST_CONTINUATION_STEP_READY")
 
     def test_host_condition_sequence_with_one_persisted_need(self):
         cases = [

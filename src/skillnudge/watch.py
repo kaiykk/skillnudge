@@ -15,7 +15,8 @@ from .evidence_need import EvidenceNeedError, load_evidence_need
 
 
 WATCH_ENVELOPE_SCHEMA_VERSION = "native.watch-envelope.v1"
-WATCH_RESULT_SCHEMA_VERSION = "native.watch-result.v1"
+WATCH_RESULT_SCHEMA_VERSION = "native.watch-result.v2"
+WATCH_REACTIVATION_SCHEMA_VERSION = "native.watch-reactivation.v0"
 TRACE_SCHEMA_VERSION = "trace.event.native-watch.v0"
 _DISPOSITIONS = {"IGNORE", "WAKE", "INSUFFICIENT"}
 _EXPERIENCE_ROLES = {"NATIVE_HOST_EXPERIENCE", "WATCH_ROUTING_TEST_EVIDENCE"}
@@ -146,6 +147,88 @@ def validate_watch_envelope(value: Any, need: Mapping[str, Any]) -> dict[str, An
     }
 
 
+def _build_reactivation_context(need: Mapping[str, Any], validated: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Build the bounded Host handoff only when the Host reported WAKE."""
+
+    assessment = validated["assessment"]
+    if assessment["disposition"] != "WAKE":
+        return None
+    experience = validated["experience"]
+    context = {
+        "schema_version": WATCH_REACTIVATION_SCHEMA_VERSION,
+        "need_id": need["need_id"],
+        "subject": dict(need["subject"]),
+        "unresolved_question": need["unresolved_question"],
+        "interesting_future_event": need["interesting_future_event"],
+        "source_evidence_refs": list(need["source_evidence_refs"]),
+        "wake_evidence_refs": list(assessment["evidence_refs"]),
+        "execution_context": dict(experience["execution_context"]),
+    }
+    _validate_reactivation_context(context, need)
+    return context
+
+
+def _validate_reactivation_context(value: Any, need: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate the core-owned Host handoff before it is persisted."""
+
+    context = _mapping(value, "reactivation_context")
+    _keys(
+        context,
+        "reactivation_context",
+        {
+            "schema_version",
+            "need_id",
+            "subject",
+            "unresolved_question",
+            "interesting_future_event",
+            "source_evidence_refs",
+            "wake_evidence_refs",
+            "execution_context",
+        },
+        {
+            "schema_version",
+            "need_id",
+            "subject",
+            "unresolved_question",
+            "interesting_future_event",
+            "source_evidence_refs",
+            "wake_evidence_refs",
+            "execution_context",
+        },
+    )
+    if context["schema_version"] != WATCH_REACTIVATION_SCHEMA_VERSION:
+        raise WatchValidationError(
+            f"reactivation_context.schema_version must be {WATCH_REACTIVATION_SCHEMA_VERSION!r}"
+        )
+    if _string(context["need_id"], "reactivation_context.need_id") != need["need_id"]:
+        raise WatchValidationError("reactivation_context.need_id does not match the persisted Evidence Need")
+    if _mapping(context["subject"], "reactivation_context.subject") != need["subject"]:
+        raise WatchValidationError("reactivation_context.subject does not match the persisted Evidence Need")
+    for key in ("unresolved_question", "interesting_future_event"):
+        if _string(context[key], f"reactivation_context.{key}") != need[key]:
+            raise WatchValidationError(f"reactivation_context.{key} does not match the persisted Evidence Need")
+    source_refs = _string_list(context["source_evidence_refs"], "reactivation_context.source_evidence_refs")
+    wake_refs = _string_list(context["wake_evidence_refs"], "reactivation_context.wake_evidence_refs")
+    execution_context = _mapping(context["execution_context"], "reactivation_context.execution_context")
+    _keys(execution_context, "reactivation_context.execution_context", {"model", "harness", "task_family"}, {"model", "harness", "task_family"})
+    normalized_execution_context = {
+        key: _string(execution_context[key], f"reactivation_context.execution_context.{key}")
+        for key in ("model", "harness", "task_family")
+    }
+    if normalized_execution_context != dict(need["scope"]):
+        raise WatchValidationError("reactivation_context.execution_context does not match the Evidence Need scope")
+    return {
+        "schema_version": WATCH_REACTIVATION_SCHEMA_VERSION,
+        "need_id": need["need_id"],
+        "subject": dict(need["subject"]),
+        "unresolved_question": need["unresolved_question"],
+        "interesting_future_event": need["interesting_future_event"],
+        "source_evidence_refs": source_refs,
+        "wake_evidence_refs": wake_refs,
+        "execution_context": normalized_execution_context,
+    }
+
+
 def default_watch_run_dir(data_dir: str | Path | None = None) -> Path:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     root = Path(data_dir).expanduser() if data_dir is not None else default_data_dir()
@@ -189,10 +272,24 @@ def run_watch(envelope: Any, *, data_dir: str | Path | None = None, run_dir: str
     _append_trace(trace_path, run_id, "experience_validated", {"experience_id": validated["experience"]["experience_id"], "evidence_role": validated["experience"]["evidence_role"]})
     _append_trace(trace_path, run_id, "evidence_refs_validated", {"event_ids": validated["assessment"]["evidence_refs"]})
     _append_trace(trace_path, run_id, "watch_disposition_recorded", {"disposition": validated["assessment"]["disposition"]})
+    reactivation_context = _build_reactivation_context(need, validated)
+    if reactivation_context is not None:
+        _write_json(output_dir / "02_reactivation_context.json", reactivation_context)
+        _append_trace(
+            trace_path,
+            run_id,
+            "reactivation_context_created",
+            {
+                "need_id": need_id,
+                "source_evidence_refs": reactivation_context["source_evidence_refs"],
+                "wake_evidence_refs": reactivation_context["wake_evidence_refs"],
+            },
+        )
     result = {
         "schema_version": WATCH_RESULT_SCHEMA_VERSION,
         "need_id": need_id,
         "need_context": validated["need_context"],
+        "reactivation_context": reactivation_context,
         "experience_id": validated["experience"]["experience_id"],
         "disposition": validated["assessment"]["disposition"],
         "rationale": validated["assessment"]["rationale"],
