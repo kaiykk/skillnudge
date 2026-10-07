@@ -15,14 +15,17 @@ from skillnudge.evidence_need import (
     EVIDENCE_NEED_SCHEMA_VERSION,
     EvidenceNeedError,
     create_evidence_need,
+    evidence_need_continuation_path,
     evidence_need_path,
     load_evidence_need,
 )
 from skillnudge.watch import (
+    WATCH_CONTINUATION_SCHEMA_VERSION,
     WATCH_ENVELOPE_SCHEMA_VERSION,
     WATCH_REACTIVATION_SCHEMA_VERSION,
     WatchValidationError,
     run_watch,
+    run_watch_continuation,
 )
 
 
@@ -69,6 +72,31 @@ def watch_value(disposition="WAKE", *, role="WATCH_ROUTING_TEST_EVIDENCE", summa
             "disposition": disposition,
             "rationale": "The host supplied a bounded routing assessment.",
             "evidence_refs": ["evt-1"] if disposition != "INSUFFICIENT" else [],
+        },
+    }
+
+
+def continuation_value(context, *, continuation_id="continuation-1"):
+    return {
+        "schema_version": WATCH_CONTINUATION_SCHEMA_VERSION,
+        "reactivation_context": context,
+        "continuation": {
+            "continuation_id": continuation_id,
+            "evidence_role": "NATIVE_HOST_CONTINUATION_EVIDENCE",
+            "action": {
+                "action_id": "action-1",
+                "kind": "bounded_evidence_review",
+                "summary": "The host compared the newly observed identity evidence against the suspended question.",
+            },
+            "execution_context": need_value()["scope"],
+            "observable_events": [
+                {
+                    "event_id": "continuation-evt-1",
+                    "kind": "evidence_observation",
+                    "summary": "The host recorded a bounded comparison result.",
+                    "source_ref": "fixture://watch/continuation-evt-1",
+                }
+            ],
         },
     }
 
@@ -143,6 +171,77 @@ class WatchTests(unittest.TestCase):
                 result = run_watch(watch_value(disposition), data_dir=directory, run_dir=run_dir)
                 self.assertIsNone(result["reactivation_context"])
                 self.assertFalse((run_dir / "02_reactivation_context.json").exists())
+
+    def test_wake_continuation_persists_new_evidence_with_lineage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            create_evidence_need(need_value(), data_dir=directory)
+            wake_dir = Path(directory) / "wake"
+            wake = run_watch(watch_value("WAKE"), data_dir=directory, run_dir=wake_dir)
+            continuation_dir = Path(directory) / "continuation"
+            result = run_watch_continuation(
+                continuation_value(wake["reactivation_context"]),
+                reactivation_file=wake_dir / "02_reactivation_context.json",
+                data_dir=directory,
+                run_dir=continuation_dir,
+            )
+            self.assertEqual(result["schema_version"], "native.watch-continuation-result.v0")
+            self.assertEqual(result["need_id"], "need-episode-1")
+            self.assertEqual(result["reactivation_run_id"], wake["run_id"])
+            self.assertEqual(result["wake_experience_id"], wake["experience_id"])
+            self.assertEqual(result["source_evidence_refs"], need_value()["source_evidence_refs"])
+            self.assertEqual(result["wake_evidence_refs"], ["evt-1"])
+            self.assertEqual(result["need_status"], "OPEN")
+            self.assertFalse(result["utility_claim"])
+            self.assertIsNone(result["lifecycle_transition"])
+            persisted_path = evidence_need_continuation_path("need-episode-1", "continuation-1", data_dir=directory)
+            self.assertTrue(persisted_path.is_file())
+            self.assertEqual(json.loads(persisted_path.read_text(encoding="utf-8"))["continuation_id"], "continuation-1")
+            self.assertEqual(load_evidence_need("need-episode-1", data_dir=directory)["status"], "OPEN")
+            trace = (continuation_dir / "trace.jsonl").read_text(encoding="utf-8")
+            self.assertIn('"event": "continuation_evidence_persisted"', trace)
+
+    def test_continuation_requires_exact_persisted_context(self):
+        with tempfile.TemporaryDirectory() as directory:
+            create_evidence_need(need_value(), data_dir=directory)
+            wake_dir = Path(directory) / "wake"
+            wake = run_watch(watch_value("WAKE"), data_dir=directory, run_dir=wake_dir)
+            value = continuation_value(wake["reactivation_context"])
+            value["reactivation_context"]["unresolved_question"] = "tampered"
+            with self.assertRaisesRegex(WatchValidationError, "does not match"):
+                run_watch_continuation(
+                    value,
+                    reactivation_file=wake_dir / "02_reactivation_context.json",
+                    data_dir=directory,
+                    run_dir=Path(directory) / "bad",
+                )
+
+    def test_cli_watch_continue_is_cross_process_ready(self):
+        with tempfile.TemporaryDirectory() as directory:
+            create_evidence_need(need_value(), data_dir=directory)
+            wake_dir = Path(directory) / "wake"
+            wake = run_watch(watch_value("WAKE"), data_dir=directory, run_dir=wake_dir)
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "skillnudge",
+                    "watch",
+                    "continue",
+                    "--stdin",
+                    "--data-dir",
+                    directory,
+                    "--reactivation-file",
+                    str(wake_dir / "02_reactivation_context.json"),
+                    "--run-dir",
+                    str(Path(directory) / "continuation"),
+                ],
+                input=json.dumps(continuation_value(wake["reactivation_context"])),
+                capture_output=True,
+                text=True,
+                env={**os.environ, "PYTHONPATH": str(ROOT / "src")},
+                check=True,
+            )
+            self.assertEqual(json.loads(completed.stdout)["continuation_id"], "continuation-1")
 
     def test_cross_process_host_can_consume_wake_context(self):
         with tempfile.TemporaryDirectory() as directory:

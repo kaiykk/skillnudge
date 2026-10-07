@@ -53,7 +53,14 @@ this context. The host remains the semantic authority; SkillNudge validates
 identity, the exact persisted condition context, evidence references, scope,
 persistence, and the bounded result.
 
+The resumed Host can submit exactly one bounded continuation envelope through
+`watch continue --stdin --reactivation-file`. SkillNudge validates the persisted
+WAKE context, records the Host action and observable evidence, and persists the
+new record under the original Need. The Need remains `OPEN`; this is evidence
+continuity, not automatic Review, Validate, resolution, promotion, or lifecycle
+mutation.
+
 This slice is provider-free and supports one persisted need plus later
-matching. It is not a daemon, scheduler, generic event bus, registry,
+matching and one bounded continuation evidence record. It is not a daemon, scheduler, generic event bus, registry,
 cross-session aggregation service, utility scorer, or autonomous evolution
 loop.

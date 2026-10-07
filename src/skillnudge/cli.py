@@ -47,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
         need.add_argument("command", nargs="?", choices=["create"])
         subparsers.add_parser(
             "watch",
-            help="match one later host experience against an Evidence Need",
+            help="match one later host experience and continue bounded evidence work",
         )
         parser.print_help()
         return 0

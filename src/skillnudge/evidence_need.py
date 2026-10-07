@@ -133,6 +133,22 @@ def evidence_need_path(need_id: str, *, data_dir: str | Path | None = None) -> P
     return evidence_need_dir(data_dir) / f"{_validate_need_id(need_id)}.json"
 
 
+def evidence_need_continuation_path(
+    need_id: str,
+    continuation_id: str,
+    *,
+    data_dir: str | Path | None = None,
+) -> Path:
+    """Return the durable path for one bounded Host continuation evidence record."""
+
+    return (
+        evidence_need_dir(data_dir)
+        / _validate_need_id(need_id)
+        / "continuations"
+        / f"{_validate_need_id(continuation_id, 'continuation_id')}.json"
+    )
+
+
 def _write_atomic(path: Path, value: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")

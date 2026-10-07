@@ -41,8 +41,9 @@ host_continuation: independent process consumed the context and emitted
 ```
 
 The continuation step only proves that the Host can recover the suspended
-question and new wake evidence without manually reconstructing the Need. It
-does not claim that the uncertainty was answered.
+question and new wake evidence without manually reconstructing the Need. The
+follow-up evidence is persisted under the original Need with both source and
+WAKE lineage. It does not claim that the uncertainty was answered.
 
 ## Boundaries
 

@@ -148,7 +148,11 @@ On `WAKE`, the result also contains and persists a minimal
 new wake evidence refs so a later Host process can perform one bounded
 continuation step. The core rejects a stale condition context but does not
 perform semantic text matching. WATCH is provider-free, keeps the Need open,
-and does not claim utility, promote a candidate, or advance the lifecycle. See
+and does not claim utility, promote a candidate, or advance the lifecycle. A
+Host can submit one bounded continuation with
+`watch continue --stdin --reactivation-file <path>`; SkillNudge validates the
+exact WAKE context and persists the new observable evidence under the original
+Need. See
 [`docs/autonomous-evolution-baseline-v0.md`](docs/autonomous-evolution-baseline-v0.md).
 
 Phase 1 planning and judgement require an explicitly configured

@@ -11,15 +11,18 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from .bootstrap import default_data_dir
-from .evidence_need import EvidenceNeedError, load_evidence_need
+from .evidence_need import EvidenceNeedError, evidence_need_continuation_path, load_evidence_need
 
 
 WATCH_ENVELOPE_SCHEMA_VERSION = "native.watch-envelope.v1"
 WATCH_RESULT_SCHEMA_VERSION = "native.watch-result.v2"
 WATCH_REACTIVATION_SCHEMA_VERSION = "native.watch-reactivation.v0"
+WATCH_CONTINUATION_SCHEMA_VERSION = "native.watch-continuation.v0"
+WATCH_CONTINUATION_RESULT_SCHEMA_VERSION = "native.watch-continuation-result.v0"
 TRACE_SCHEMA_VERSION = "trace.event.native-watch.v0"
 _DISPOSITIONS = {"IGNORE", "WAKE", "INSUFFICIENT"}
 _EXPERIENCE_ROLES = {"NATIVE_HOST_EXPERIENCE", "WATCH_ROUTING_TEST_EVIDENCE"}
+_CONTINUATION_EVIDENCE_ROLE = "NATIVE_HOST_CONTINUATION_EVIDENCE"
 _PRIVATE_FIELDS = {"chain_of_thought", "hidden_reasoning", "internal_reasoning", "private_reasoning", "scratchpad"}
 
 
@@ -147,7 +150,9 @@ def validate_watch_envelope(value: Any, need: Mapping[str, Any]) -> dict[str, An
     }
 
 
-def _build_reactivation_context(need: Mapping[str, Any], validated: Mapping[str, Any]) -> dict[str, Any] | None:
+def _build_reactivation_context(
+    need: Mapping[str, Any], validated: Mapping[str, Any], run_id: str
+) -> dict[str, Any] | None:
     """Build the bounded Host handoff only when the Host reported WAKE."""
 
     assessment = validated["assessment"]
@@ -162,6 +167,8 @@ def _build_reactivation_context(need: Mapping[str, Any], validated: Mapping[str,
         "interesting_future_event": need["interesting_future_event"],
         "source_evidence_refs": list(need["source_evidence_refs"]),
         "wake_evidence_refs": list(assessment["evidence_refs"]),
+        "wake_experience_id": experience["experience_id"],
+        "reactivation_run_id": run_id,
         "execution_context": dict(experience["execution_context"]),
     }
     _validate_reactivation_context(context, need)
@@ -183,6 +190,8 @@ def _validate_reactivation_context(value: Any, need: Mapping[str, Any]) -> dict[
             "interesting_future_event",
             "source_evidence_refs",
             "wake_evidence_refs",
+            "wake_experience_id",
+            "reactivation_run_id",
             "execution_context",
         },
         {
@@ -193,6 +202,8 @@ def _validate_reactivation_context(value: Any, need: Mapping[str, Any]) -> dict[
             "interesting_future_event",
             "source_evidence_refs",
             "wake_evidence_refs",
+            "wake_experience_id",
+            "reactivation_run_id",
             "execution_context",
         },
     )
@@ -209,6 +220,8 @@ def _validate_reactivation_context(value: Any, need: Mapping[str, Any]) -> dict[
             raise WatchValidationError(f"reactivation_context.{key} does not match the persisted Evidence Need")
     source_refs = _string_list(context["source_evidence_refs"], "reactivation_context.source_evidence_refs")
     wake_refs = _string_list(context["wake_evidence_refs"], "reactivation_context.wake_evidence_refs")
+    wake_experience_id = _string(context["wake_experience_id"], "reactivation_context.wake_experience_id")
+    reactivation_run_id = _string(context["reactivation_run_id"], "reactivation_context.reactivation_run_id")
     execution_context = _mapping(context["execution_context"], "reactivation_context.execution_context")
     _keys(execution_context, "reactivation_context.execution_context", {"model", "harness", "task_family"}, {"model", "harness", "task_family"})
     normalized_execution_context = {
@@ -225,7 +238,76 @@ def _validate_reactivation_context(value: Any, need: Mapping[str, Any]) -> dict[
         "interesting_future_event": need["interesting_future_event"],
         "source_evidence_refs": source_refs,
         "wake_evidence_refs": wake_refs,
+        "wake_experience_id": wake_experience_id,
+        "reactivation_run_id": reactivation_run_id,
         "execution_context": normalized_execution_context,
+    }
+
+
+def _validate_continuation_envelope(value: Any, context: Mapping[str, Any], need: Mapping[str, Any]) -> dict[str, Any]:
+    _scan_private(value)
+    envelope = _mapping(value, "continuation_envelope")
+    _keys(
+        envelope,
+        "continuation_envelope",
+        {"schema_version", "reactivation_context", "continuation"},
+        {"schema_version", "reactivation_context", "continuation"},
+    )
+    if envelope["schema_version"] != WATCH_CONTINUATION_SCHEMA_VERSION:
+        raise WatchValidationError(f"schema_version must be {WATCH_CONTINUATION_SCHEMA_VERSION!r}")
+    supplied_context = _validate_reactivation_context(envelope["reactivation_context"], need)
+    if supplied_context != dict(context):
+        raise WatchValidationError("reactivation_context does not match the persisted WAKE context")
+    continuation = _mapping(envelope["continuation"], "continuation")
+    _keys(
+        continuation,
+        "continuation",
+        {"continuation_id", "evidence_role", "action", "execution_context", "observable_events"},
+        {"continuation_id", "evidence_role", "action", "execution_context", "observable_events"},
+    )
+    evidence_role = _string(continuation["evidence_role"], "continuation.evidence_role")
+    if evidence_role != _CONTINUATION_EVIDENCE_ROLE:
+        raise WatchValidationError(f"continuation.evidence_role must be {_CONTINUATION_EVIDENCE_ROLE!r}")
+    action = _mapping(continuation["action"], "continuation.action")
+    _keys(action, "continuation.action", {"action_id", "kind", "summary"}, {"action_id", "kind", "summary"})
+    normalized_action = {
+        key: _string(action[key], f"continuation.action.{key}")
+        for key in ("action_id", "kind", "summary")
+    }
+    execution_context = _mapping(continuation["execution_context"], "continuation.execution_context")
+    _keys(execution_context, "continuation.execution_context", {"model", "harness", "task_family"}, {"model", "harness", "task_family"})
+    normalized_execution_context = {
+        key: _string(execution_context[key], f"continuation.execution_context.{key}")
+        for key in ("model", "harness", "task_family")
+    }
+    if normalized_execution_context != dict(context["execution_context"]):
+        raise WatchValidationError("continuation.execution_context does not match the WAKE context")
+    events = continuation["observable_events"]
+    if not isinstance(events, list) or not events:
+        raise WatchValidationError("continuation.observable_events must be a non-empty list")
+    normalized_events: list[dict[str, str]] = []
+    event_ids: set[str] = set()
+    for index, raw in enumerate(events):
+        event = _mapping(raw, f"continuation.observable_events[{index}]")
+        _keys(event, f"continuation.observable_events[{index}]", {"event_id", "kind", "summary", "source_ref"}, {"event_id", "kind", "summary", "source_ref"})
+        item = {
+            key: _string(event[key], f"continuation.observable_events[{index}].{key}")
+            for key in ("event_id", "kind", "summary", "source_ref")
+        }
+        if item["event_id"] in event_ids:
+            raise WatchValidationError("continuation.observable_events contains duplicate event_id values")
+        event_ids.add(item["event_id"])
+        normalized_events.append(item)
+    return {
+        "schema_version": WATCH_CONTINUATION_SCHEMA_VERSION,
+        "reactivation_context": dict(context),
+        "continuation": {
+            "continuation_id": _string(continuation["continuation_id"], "continuation.continuation_id"),
+            "evidence_role": evidence_role,
+            "action": normalized_action,
+            "execution_context": normalized_execution_context,
+            "observable_events": normalized_events,
+        },
     }
 
 
@@ -272,7 +354,7 @@ def run_watch(envelope: Any, *, data_dir: str | Path | None = None, run_dir: str
     _append_trace(trace_path, run_id, "experience_validated", {"experience_id": validated["experience"]["experience_id"], "evidence_role": validated["experience"]["evidence_role"]})
     _append_trace(trace_path, run_id, "evidence_refs_validated", {"event_ids": validated["assessment"]["evidence_refs"]})
     _append_trace(trace_path, run_id, "watch_disposition_recorded", {"disposition": validated["assessment"]["disposition"]})
-    reactivation_context = _build_reactivation_context(need, validated)
+    reactivation_context = _build_reactivation_context(need, validated, run_id)
     if reactivation_context is not None:
         _write_json(output_dir / "02_reactivation_context.json", reactivation_context)
         _append_trace(
@@ -307,11 +389,69 @@ def run_watch(envelope: Any, *, data_dir: str | Path | None = None, run_dir: str
     return result
 
 
+def run_watch_continuation(
+    envelope: Any,
+    *,
+    reactivation_file: str | Path,
+    data_dir: str | Path | None = None,
+    run_dir: str | Path | None = None,
+) -> dict[str, Any]:
+    """Persist one bounded Host evidence action against a prior WAKE context."""
+
+    try:
+        persisted_context = json.loads(Path(reactivation_file).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise WatchValidationError("reactivation context cannot be read") from error
+    raw_context = _mapping(persisted_context, "reactivation_context")
+    need_id = _string(raw_context.get("need_id"), "reactivation_context.need_id")
+    try:
+        need = load_evidence_need(need_id, data_dir=data_dir, require_open=True)
+    except EvidenceNeedError as error:
+        raise WatchValidationError(str(error)) from error
+    context = _validate_reactivation_context(raw_context, need)
+    validated = _validate_continuation_envelope(envelope, context, need)
+    continuation = validated["continuation"]
+    continuation_id = continuation["continuation_id"]
+    persistent_path = evidence_need_continuation_path(need_id, continuation_id, data_dir=data_dir)
+    if persistent_path.exists():
+        raise RuntimeError("CONTINUATION_ID_EXISTS: choose a new continuation_id")
+    output_dir = Path(run_dir) if run_dir is not None else default_watch_run_dir(data_dir).with_name(f"continuation-{uuid.uuid4().hex[:8]}")
+    if output_dir.exists() and any(output_dir.iterdir()):
+        raise RuntimeError("WATCH_CONTINUATION_RUN_DIR_EXISTS: choose a new run directory")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    run_id = output_dir.name
+    trace_path = output_dir / "trace.jsonl"
+    record = {
+        "schema_version": WATCH_CONTINUATION_RESULT_SCHEMA_VERSION,
+        "need_id": need_id,
+        "reactivation_run_id": context["reactivation_run_id"],
+        "wake_experience_id": context["wake_experience_id"],
+        "continuation_id": continuation_id,
+        "action": continuation["action"],
+        "evidence": {"observable_events": continuation["observable_events"]},
+        "source_evidence_refs": list(context["source_evidence_refs"]),
+        "wake_evidence_refs": list(context["wake_evidence_refs"]),
+        "need_status": "OPEN",
+        "utility_claim": False,
+        "lifecycle_transition": None,
+        "run_id": run_id,
+    }
+    _write_json(output_dir / "03_continuation_evidence.json", record)
+    persistent_path.parent.mkdir(parents=True, exist_ok=True)
+    _write_json(persistent_path, record)
+    _append_trace(trace_path, run_id, "reactivation_context_loaded", {"need_id": need_id, "reactivation_run_id": context["reactivation_run_id"]})
+    _append_trace(trace_path, run_id, "host_continuation_action_recorded", {"continuation_id": continuation_id, "action_id": continuation["action"]["action_id"]})
+    _append_trace(trace_path, run_id, "continuation_evidence_persisted", {"need_id": need_id, "continuation_id": continuation_id, "event_ids": [event["event_id"] for event in continuation["observable_events"]]})
+    return {**record, "run_dir": str(output_dir), "persisted_path": str(persistent_path)}
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="skillnudge watch")
+    parser.add_argument("command", nargs="?", choices=["continue"], help="record one Host continuation after a WAKE")
     parser.add_argument("--stdin", action="store_true", help="read a WATCH envelope from standard input")
     parser.add_argument("--data-dir", type=Path, help="override the per-user SkillNudge data directory")
     parser.add_argument("--run-dir", type=Path, help="explicit local artifact directory")
+    parser.add_argument("--reactivation-file", type=Path, help="persisted reactivation context for watch continue")
     args = parser.parse_args(argv)
     if not args.stdin:
         parser.error("watch requires --stdin")
@@ -319,7 +459,18 @@ def main(argv: list[str] | None = None) -> int:
         raw = sys.stdin.read()
         if not raw.strip():
             raise WatchValidationError("the WATCH envelope must not be empty")
-        result = run_watch(json.loads(raw), data_dir=args.data_dir, run_dir=args.run_dir)
+        value = json.loads(raw)
+        if args.command == "continue":
+            if args.reactivation_file is None:
+                raise WatchValidationError("watch continue requires --reactivation-file")
+            result = run_watch_continuation(
+                value,
+                reactivation_file=args.reactivation_file,
+                data_dir=args.data_dir,
+                run_dir=args.run_dir,
+            )
+        else:
+            result = run_watch(value, data_dir=args.data_dir, run_dir=args.run_dir)
     except (json.JSONDecodeError, WatchValidationError, RuntimeError, OSError) as error:
         print(f"{type(error).__name__}: {error}", file=sys.stderr)
         return 1

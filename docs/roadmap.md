@@ -34,8 +34,9 @@ with observable event references. A `WAKE` produces a v2 result plus a
 persisted, minimal reactivation context that a later Host process can consume
 for one bounded continuation step. The Need stays `OPEN`; no utility claim,
 lifecycle transition, scheduler, or automatic follow-up is created. This is
-one bounded persisted need plus later condition matching and handoff, not a
-generic monitoring or aggregation system.
+one bounded persisted need plus later condition matching, handoff, and one
+Host continuation evidence record, not a generic monitoring or aggregation
+system.
 
 ## Evolution Gradient (frozen concept, 2026-10-06)
 

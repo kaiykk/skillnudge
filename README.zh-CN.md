@@ -140,7 +140,9 @@ Need。`watch --stdin` 会在后续进程重新加载它，把持久化的
 `reactivation_context`，带上挂起的问题、原始 evidence refs 和新的 wake
 evidence refs，供后续 Host 进程执行一次有边界的 continuation step。Core
 会拒绝被修改的条件上下文，但不在确定性逻辑中做语义文本匹配。WATCH
-不需要 provider、保持 Need 为 OPEN，不会宣称 utility、晋升 candidate，也不会推进生命周期。详见
+不需要 provider、保持 Need 为 OPEN，不会宣称 utility、晋升 candidate，也不会推进生命周期。
+Host 可以通过 `watch continue --stdin --reactivation-file <path>` 提交一次有边界的
+continuation；SkillNudge 会校验精确的 WAKE context，并把新的可观察证据持久化到原始 Need 下。详见
 [`docs/autonomous-evolution-baseline-v0.md`](docs/autonomous-evolution-baseline-v0.md)。
 
 Phase 1 的 planning 和 judgement 需要通过 `SKILLNUDGE_MODEL_*` 环境变量配置
