@@ -38,6 +38,17 @@ one bounded persisted need plus later condition matching, handoff, and one
 Host continuation evidence record, not a generic monitoring or aggregation
 system.
 
+## Current — Learning-loop checkpoint (2026-10-07)
+
+`[COMPLETE_BOUNDED_V0]` The product now has a coherent bounded story from
+observable Review evidence through candidate-only EVOLVE, scoped Validate,
+Human decision, persisted Evidence Need, WATCH, WAKE, and one Host
+continuation evidence record. Phase C diagnosis found that candidate
+generation is not the current bottleneck; natural evidence availability,
+evaluation/oracle validity, and task discriminativeness are limiting inputs.
+Darwin remains external and is not admitted into EVOLVE. See
+[`docs/product-receipts/learning-loop-checkpoint-20261007.md`](product-receipts/learning-loop-checkpoint-20261007.md).
+
 ## Evolution Gradient (frozen concept, 2026-10-06)
 
 [`docs/evolution-gradient.md`](evolution-gradient.md) freezes an

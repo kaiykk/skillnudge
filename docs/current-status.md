@@ -83,6 +83,15 @@ unimplemented. The product receipts for this slice are
 `docs/product-receipts/wake-reactivation-20261007.md`, and
 `docs/product-receipts/evidence-continuation-20261007.md`.
 
+The Phase B full learning-loop checkpoint is complete for bounded v0. The
+product semantics are coherent across REVIEW, EVOLVE, VALIDATE, Evidence Need,
+WATCH, WAKE and Host continuation, while semantic handoff remains explicit and
+Human lifecycle authority is preserved. Phase C then found that candidate
+generation is not the current bottleneck: the existing evidence is limited by
+natural-task availability, evaluation/oracle validity and discriminativeness.
+Darwin therefore remains external and is not admitted as an EVOLVE operator.
+See `docs/product-receipts/learning-loop-checkpoint-20261007.md`.
+
 ## Research-track position
 
 ### Phase 2 — scoped measurement
