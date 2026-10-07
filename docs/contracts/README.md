@@ -1,4 +1,10 @@
-# SkillNudge V0 Contracts
+# SkillNudge V0 Contracts — Legacy Runtime
+
+> **Product Reset notice (2026-10-07):** These contracts describe the
+> pre-reset Advisor/Review/Validate runtime. They remain for reproducibility
+> while the control-plane contracts are built, but they are not the current
+> SkillNudge North Star. See [`../lifecycle.md`](../lifecycle.md) and
+> [`../product-reset-phase0-20261007.md`](../product-reset-phase0-20261007.md).
 
 ## DESIGN FREEZE
 

@@ -6,6 +6,22 @@
 Home Project; this file is the product-facing summary and does not replace
 those receipts. Home Project is not a SkillNudge runtime dependency.
 
+## Product Reset — Phase 0
+
+The current North Star is now **an Agent Skill evolution control plane**.
+SkillNudge owns canonical identity, immutable version lineage, lifecycle state,
+operator-result provenance, and Human-controlled activation/rollback. Skill
+authoring, optimization, independent semantic utility judgement, benchmark
+design, and retrieval research belong outside the product.
+
+The repository classification is complete, but runtime migration has not
+started. The earlier Advisor, retrieval, provider-backed evaluator,
+Review/Validate, and WATCH implementations below are retained as recoverable
+legacy material. They are not the new product lifecycle. See
+[`product-reset-phase0-20261007.md`](product-reset-phase0-20261007.md),
+[`lifecycle.md`](lifecycle.md), and
+[`operator-integrations.md`](operator-integrations.md).
+
 ## Product/runtime baseline
 
 The shipped runtime includes the provider-free Native Phase 1 advisor baseline

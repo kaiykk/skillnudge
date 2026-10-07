@@ -1,5 +1,12 @@
 # SkillNudge Project Handbook
 
+> **Product Reset notice (2026-10-07):** This handbook records the prior
+> Advisor/Review/Validate/WATCH vertical slice. It is retained as legacy
+> operational history while SkillNudge migrates toward an Agent Skill
+> evolution control plane. The active boundary is in
+> [`architecture.md`](architecture.md), [`lifecycle.md`](lifecycle.md), and
+> [`product-reset-phase0-20261007.md`](product-reset-phase0-20261007.md).
+
 **Status:** Canonical project operating guide
 **Last updated:** 2026-10-05
 

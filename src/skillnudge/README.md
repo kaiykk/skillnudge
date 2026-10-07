@@ -1,6 +1,11 @@
 # `src/skillnudge`
 
-This package contains the Week 1 Phase 1 runtime:
+This package is in a controlled migration from the earlier Advisor runtime to
+the SkillNudge Skill-evolution control plane. The target active runtime owns
+artifact identity, version lineage, lifecycle state, operator-result
+provenance, and Human decisions.
+
+The current checkout still contains the legacy bounded runtime:
 
 - capability framing, intervention planning, and query planning;
 - local SQLite FTS5 storage, raw BM25 retrieval, and deterministic RRF;
@@ -13,6 +18,10 @@ This package contains the Week 1 Phase 1 runtime:
 - a composed development entry point:
   `PYTHONPATH=src python3 -m skillnudge advise "<request>" --trace`.
 
-It does not implement live discovery, automatic installation, automatic
-promotion, Watch,
-embeddings, reranking, or capability self-evolution.
+These modules remain for reproducibility while Phase 0 classification is
+reviewed. They are not evidence that the new control-plane operator adapters
+already exist. It does not implement automatic installation, automatic
+promotion, autonomous operator selection, or capability self-evolution.
+
+See [`../../docs/product-reset-phase0-20261007.md`](../../docs/product-reset-phase0-20261007.md)
+for the KEEP/ADAPT/REMOVE_FROM_ACTIVE_TREE decision.

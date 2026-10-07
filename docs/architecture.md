@@ -1,91 +1,46 @@
-# Architecture
+# SkillNudge Architecture
 
-## Status
-
-- `[FROZEN]` V0 is a layered, trace-first Intervention Advisor.
-- `[FROZEN]` Local retrieval and conditional live discovery converge into a
-  Candidate Pool before evidence hydration and judgement.
-- `[WORKING HYPOTHESIS]` These boundaries are sufficient for a lightweight
-  first implementation.
-- `[FUTURE]` Semantic retrieval, large-scale source adapters, and lifecycle
-  automation.
-
-The diagrams describe design boundaries, not implemented services. SkillNudge
-does not require a microservice architecture.
-
-## Product-Level Architecture
+SkillNudge is a control plane around external Skill evolution operators. The
+runtime owns identity, lineage, lifecycle state, provenance, and Human
+authority. It does not own Skill authoring, optimization, semantic utility
+judgement, retrieval research, or a benchmark framework.
 
 ```mermaid
-flowchart TD
-    U[User] --> A[SkillNudge Advise]
-    A --> C[Capability Understanding]
-    C --> I[Intervention Planning]
-    I --> AC[Candidate Acquisition]
-    AC --> E[Evidence]
-    E --> J[Judgement]
-    J --> F[Advice]
-
-    AC --> S[Skills]
-    AC --> P[Plugins]
-    AC --> T[Tools]
-    AC --> R[Companion Resources]
+flowchart LR
+    H[Human / Host intent] --> R[Evolution Request]
+    R --> O[External Operator]
+    O --> X[Operator Result]
+    X --> I[SkillNudge Import]
+    I --> C[Non-active Candidate]
+    C --> P[Provenance + Lineage]
+    C --> D[Human Decision]
+    D --> A[Activate]
+    D --> K[Keep / Reject / Rollback / Retire]
 ```
 
-## V0 Runtime
+## Control-plane responsibilities
 
-```mermaid
-flowchart TD
-    R0[Raw User Request] --> R1[Intake / Context]
-    R1 --> R2[Capability Framing]
-    R2 --> R3[Intervention Planning]
-    R3 --> R4[Query Planning]
-    R4 --> R5[Candidate Acquisition]
-    R5 --> LR[Local Retrieval]
-    R5 --> LD[Conditional Live Discovery]
-    LR --> CP[Candidate Pool]
-    LD --> CP
-    CP --> R6[Evidence Hydration]
-    R6 --> R7[Candidate Judgement]
-    R7 --> R8[Final Advice]
+- canonical `capability_id`, version, exact content, and hash;
+- source-to-candidate lineage;
+- explicit evolution requests and operator identity;
+- imported result and provenance references;
+- atomic persistence and contract validation;
+- Human-controlled lifecycle transitions.
 
-    TR[Trace] -. crosses .-> R1
-    TR -. crosses .-> R2
-    TR -. crosses .-> R3
-    TR -. crosses .-> R4
-    TR -. crosses .-> R5
-    TR -. crosses .-> R6
-    TR -. crosses .-> R7
-    TR -. crosses .-> R8
-```
+## External responsibilities
 
-## Candidate Acquisition Decision Tree
+- Skill Conductor: create, review, structure/quality validate, package;
+- Darwin Skill: bounded interactive improvement and keep/revert;
+- Microsoft SkillOpt: trajectory-driven and offline optimization.
 
-```mermaid
-flowchart TD
-    S[Start] --> L[Local Search]
-    L --> Q{Enough evidence?}
-    Q -->|YES| H[Evidence Hydration]
-    Q -->|NO| W{Which intervention surface?}
-    W -->|Skill| SS[Skill registry / search]
-    W -->|Plugin| PM[Official marketplace refresh]
-    W -->|Tool| TW[Targeted live web discovery]
-    W -->|Resource| RR[Targeted resource lookup]
-    SS --> N[Normalize]
-    PM --> N
-    TW --> N
-    RR --> N
-    N --> D[Deduplicate]
-    D --> C[Cache at the appropriate level]
-    C --> P[Candidate Pool]
-    H --> P
-```
+The adapter boundary is described in
+[`operator-integrations.md`](operator-integrations.md). The lifecycle state
+machine is described in [`lifecycle.md`](lifecycle.md).
 
-## Boundary Notes
+## Migration status
 
-- Capability Framing happens before candidate search.
-- Candidate Acquisition constructs a pool; it does not give final advice.
-- Evidence Hydration turns shallow search results into judgeable evidence.
-- Candidate Judgement estimates intervention utility, not just text similarity.
-- Final Advice is intentionally small and can be `no_intervention`.
-- Trace artifacts are explicit and reviewable; private chain-of-thought is not
-  part of the design.
+The repository still contains the earlier Advisor, retrieval, provider-backed
+experiment, Review/Validate, and WATCH implementations. Phase 0 classifies
+those modules as legacy or adapters; it does not silently claim that they are
+the new control plane. See
+[`product-reset-phase0-20261007.md`](product-reset-phase0-20261007.md).
