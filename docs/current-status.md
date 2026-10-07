@@ -25,7 +25,7 @@ and the bounded Native Review MVP:
 ### Current Outcome — Native Review + Validate MVP
 
 ```yaml
-current_outcome: REVIEW_EVOLVE_VALIDATE_WATCH_MVP
+current_outcome: REVIEW_EVOLVE_VALIDATE_WATCH_CONTINUATION_MVP
 status: IMPLEMENTED_BOUNDED_MVP
 input: one real or sanitized observable Agent experience
 output: TEST | WATCH | NO_INTERVENTION | INSUFFICIENT
@@ -91,6 +91,16 @@ generation is not the current bottleneck: the existing evidence is limited by
 natural-task availability, evaluation/oracle validity and discriminativeness.
 Darwin therefore remains external and is not admitted as an EVOLVE operator.
 See `docs/product-receipts/learning-loop-checkpoint-20261007.md`.
+
+The Golden Path Integration Campaign adds a stronger correction: the prior
+Phase B result did not itself prove one integrated trajectory. A sanitized
+structured-record case now runs across separate Review, Validate, EVOLVE,
+Evidence Need, WATCH, WAKE, continuation, post-WAKE Review, and
+CAPABILITY_REVISION Validate processes. The terminal bounded result is
+`VALID / NEUTRAL / DECISION_READY / KEEP / HUMAN_REQUIRED`; candidate
+generation remains `NOT_CURRENT_BOTTLENECK`, and Darwin remains external.
+See `docs/product-receipts/golden-path-integration-20261007.md` and
+`tests/test_golden_path.py`.
 
 ## Research-track position
 

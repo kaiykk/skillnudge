@@ -49,6 +49,17 @@ evaluation/oracle validity, and task discriminativeness are limiting inputs.
 Darwin remains external and is not admitted into EVOLVE. See
 [`docs/product-receipts/learning-loop-checkpoint-20261007.md`](product-receipts/learning-loop-checkpoint-20261007.md).
 
+## Current — Golden Path Integration (2026-10-07)
+
+`[INTEGRATED_BOUNDED_V0]` A sanitized structured-record trajectory now crosses
+Review, initial Validate, candidate-only EVOLVE, suspended Evidence Need,
+WATCH/WAKE, Host continuation, post-WAKE Review, and CAPABILITY_REVISION
+Validate. The same candidate identity and evidence lineage reach
+`DECISION_READY / KEEP / HUMAN_REQUIRED`. The product still uses explicit Host
+artifact transport and does not provide generic orchestration or automatic
+lifecycle mutation. See
+[`docs/product-receipts/golden-path-integration-20261007.md`](product-receipts/golden-path-integration-20261007.md).
+
 ## Evolution Gradient (frozen concept, 2026-10-06)
 
 [`docs/evolution-gradient.md`](evolution-gradient.md) freezes an
