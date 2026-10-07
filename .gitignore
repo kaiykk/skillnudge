@@ -1,26 +1,10 @@
-# Python cache and local environments
 __pycache__/
 *.py[cod]
 .venv/
 venv/
-
-# Local tooling
-.DS_Store
-.env
-.env.*
-!.env.example
-
-# Local provider credentials: never commit or upload these files.
-config/*.local.env
-config/*secret*
-config/*credential*
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-
-# Build and coverage output
 build/
 dist/
 *.egg-info/
-.coverage
-htmlcov/
+.pytest_cache/
+.DS_Store
+config/*.local.env
